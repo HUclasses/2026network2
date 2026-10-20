@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>第4回 pkt セルフチェック</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho:wght@700&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako_inflate.min.js"></script>
+<style>
+/* 講義教材デザインシステム（単一のライトテーマ）に合わせる。紙の地、罫線で区切る、色は意味に使う */
+:root {
+  color-scheme: light;
+  --paper: #f7f5f0; --surface: #ffffff; --surface-sunk: #efebe3; --line: #d6d0c4;
+  --ink: #1f2430; --ink-muted: #555b68; --navy: #1e3a5f; --navy-tint: #e4eaf2;
+  --vermilion: #a8402a; --moss: #456334; --vermilion-tint: #f6e7e2; --moss-tint: #e7ede1;
+  --serif: "BIZ UDPMincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --sans: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --mono: "JetBrains Mono", "BIZ UDGothic", Consolas, monospace;
+  --s2: 8px; --s4: 16px; --s6: 24px; --s10: 40px; --r-sm: 2px; --r-md: 6px; --r-lg: 12px;
+}
+html { background: var(--paper); }
+body { background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.75; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--navy); }
+.band { height: var(--s2); background: var(--navy); }
+.wrap { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: var(--s6) var(--s10); display: grid; gap: var(--s6); }
+header { display: grid; gap: var(--s2); }
+.eyebrow { font-size: 13px; letter-spacing: .08em; color: var(--ink-muted); }
+h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 36px); line-height: 1.35; color: var(--navy); margin: 0; text-wrap: balance; }
+h2 { font-family: var(--serif); font-size: 20px; line-height: 1.6; margin: 0; color: var(--ink); text-wrap: balance; }
+.lead { margin: 0; max-width: 40em; }
+.lead small { display: block; color: var(--ink-muted); font-size: 13px; line-height: 1.6; margin-top: var(--s2); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s6); display: grid; gap: var(--s4); }
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s4) var(--s6); }
+@media (max-width: 640px) { .controls { grid-template-columns: minmax(0, 1fr); } .panel { padding: var(--s4); } }
+.field { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.field > label, .field > .lbl { font-weight: 700; font-size: 14px; }
+.field .note { font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
+.seg { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { border: 1px solid var(--line); border-radius: var(--r-md); padding: 6px 14px; cursor: pointer; background: var(--surface); font-size: 14px; }
+.seg input:checked + label { background: var(--navy); border-color: var(--navy); color: #fff; }
+.seg input:focus-visible + label { outline: 2px solid var(--navy); outline-offset: 2px; }
+input[type=text] { font: 15px var(--mono); padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--ink); width: 100%; max-width: 16em; box-sizing: border-box; }
+input[type=text]:focus-visible { outline: 2px solid var(--navy); outline-offset: 1px; }
+.drop { grid-column: 1 / -1; border: 1.5px dashed var(--ink-muted); border-radius: var(--r-md); background: var(--surface-sunk); padding: var(--s6) var(--s4); text-align: center; cursor: pointer; display: grid; gap: 4px; justify-items: center; }
+.drop:hover, .drop.over { border-color: var(--navy); background: var(--navy-tint); }
+.drop:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.drop strong { font-size: 16px; color: var(--navy); }
+.drop span { font-size: 13px; color: var(--ink-muted); }
+.btn { font: 700 14px var(--sans); border: 1px solid var(--navy); color: var(--navy); background: var(--surface); border-radius: var(--r-md); padding: 6px 14px; cursor: pointer; }
+.btn:hover { background: var(--navy-tint); }
+.btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); padding: var(--s4); border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); }
+.status .file { font-family: var(--mono); font-size: 13px; color: var(--ink-muted); overflow-wrap: anywhere; min-width: 0; }
+.verdict { font-weight: 700; font-size: 17px; }
+.verdict.ok { color: var(--moss); } .verdict.ng { color: var(--vermilion); }
+.example-tag { font-size: 12px; letter-spacing: .06em; border: 1px solid var(--ink-muted); color: var(--ink-muted); border-radius: var(--r-sm); padding: 0 6px; }
+.items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px var(--s4); padding: var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.badge { font-size: 12px; font-weight: 700; letter-spacing: .04em; border-radius: var(--r-sm); padding: 2px 8px; align-self: start; white-space: nowrap; }
+.badge.fix { background: var(--vermilion-tint); color: var(--vermilion); }
+.badge.check { background: var(--navy-tint); color: var(--navy); }
+.badge.info { background: var(--surface-sunk); color: var(--ink-muted); }
+.item .who { font-weight: 700; margin-right: .5em; }
+.item p { margin: 0; min-width: 0; }
+.item .hint { grid-column: 2; font-size: 14px; color: var(--ink); line-height: 1.7; }
+.item .hint b { color: var(--moss); font-size: 12px; letter-spacing: .06em; margin-right: .5em; }
+@media (max-width: 480px) { .item { grid-template-columns: minmax(0, 1fr); } .item .hint { grid-column: 1; } }
+.allgood { padding: var(--s4); border-radius: var(--r-md); background: var(--moss-tint); color: var(--ink); }
+.allgood b { color: var(--moss); }
+section { display: grid; gap: var(--s4); min-width: 0; }
+.sub { font-size: 13px; color: var(--ink-muted); margin: 0; line-height: 1.6; }
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; white-space: nowrap; }
+th { background: var(--surface-sunk); font-weight: 700; font-size: 13px; }
+tr:last-child td { border-bottom: 0; }
+td.mono, .mono { font-family: var(--mono); font-size: 13px; }
+.addr .net { color: #7a7f8a; } .addr .host { color: var(--moss); font-weight: 600; }
+.ok { color: var(--moss); font-weight: 700; } .ng { color: var(--vermilion); font-weight: 700; }
+.mx td, .mx th { text-align: center; min-width: 3.2em; }
+.mx th[scope=row] { text-align: left; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s6); }
+@media (max-width: 760px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.foot { font-size: 13px; color: var(--ink-muted); border-top: 1px solid var(--line); padding-top: var(--s4); line-height: 1.7; }
+.notice { padding: 10px var(--s4); border-radius: var(--r-md); background: var(--navy-tint); color: var(--ink); font-size: 14px; }
+.err { padding: var(--s4); border-radius: var(--r-md); background: var(--vermilion-tint); color: var(--ink); }
+.err b { color: var(--vermilion); }
+@media (prefers-reduced-motion: no-preference) { .result { animation: fade .25s ease-out; } @keyframes fade { from { opacity: .4 } to { opacity: 1 } } }
+</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="band" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">情報通信ネットワークⅡ ／ 提出前の確認</div>
+    <h1>第4回 pkt セルフチェック</h1>
+    <p class="lead">提出する前に、自分の pkt ファイルを読み込んで、設定が要件どおりかを確かめるページです。直すところが見つかったら、ヒントを手がかりに Packet Tracer で自分で直してください。
+      <small>ファイルはこのページの中だけで読み取り、どこにも送信しません。結果は確認の助けで、採点とは別です。最後は自分の画面で ping・telnet・ssh を試して確かめよう。</small></p>
+  </header>
+
+  <div class="panel" aria-label="読み込み">
+    <div class="controls">
+      <div class="field">
+        <span class="lbl">この回の要件</span>
+        <span class="note" id="lesson-note"></span>
+      </div>
+      <div class="field">
+        <label for="sid">学籍番号（任意）</label>
+        <input type="text" id="sid" placeholder="例：2024z999" autocomplete="off" spellcheck="false" inputmode="latin">
+        <span class="note" id="sid-note">入力すると、ファイル名も確かめます。</span>
+      </div>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-sub">
+        <strong>pkt ファイルをここにドロップ</strong>
+        <span id="drop-sub">またはクリックして選ぶ（Packet Tracer 9 で保存した .pkt）</span>
+        <input type="file" id="file" accept=".pkt" hidden>
+      </div>
+    </div>
+  </div>
+
+  <div id="out" class="result"></div>
+
+  <p class="foot">「通信の見込み」は、ファイルの設定から Packet Tracer の動きを簡単にまねて判断したものです。ケーブルのつなぎ間違いなど、ファイルから読み取れないこともあります。見込みが○でも、実際に ping・telnet・ssh で確かめよう。<br>
+    思った通りにいかないときこそ、腕の見せ所。表示をよく読み、近いところから順に確かめて、自分で原因にたどり着こう。</p>
+</div>
+<script>window.PKT_LESSON = '4';</script>
+<script>
+// ---- MD5 + md5-crypt ($1$) : enable secret / username secret の照合用 ----
+const MD5C = (() => {
+  function md5(bytes) {
+    const K = new Int32Array(64), S = [7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];
+    for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+    const len = bytes.length, nb = ((len + 8) >> 6) + 1, M = new Int32Array(nb * 16);
+    for (let i = 0; i < len; i++) M[i >> 2] |= bytes[i] << ((i % 4) * 8);
+    M[len >> 2] |= 0x80 << ((len % 4) * 8); M[nb * 16 - 2] = len * 8;
+    let a0 = 0x67452301, b0 = 0xefcdab89 | 0, c0 = 0x98badcfe | 0, d0 = 0x10325476;
+    for (let o = 0; o < M.length; o += 16) { let A = a0, B = b0, C = c0, D = d0;
+      for (let i = 0; i < 64; i++) { let F, g;
+        if (i < 16) { F = (B & C) | (~B & D); g = i; } else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+        else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; } else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+        const s = S[(i >> 4) * 4 + (i % 4)], t = (A + F + K[i] + M[o + g]) | 0;
+        A = D; D = C; C = B; B = (B + ((t << s) | (t >>> (32 - s)))) | 0; }
+      a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0; }
+    const out = []; for (const v of [a0, b0, c0, d0]) for (let i = 0; i < 4; i++) out.push((v >>> (8 * i)) & 255);
+    return out; }
+  const enc = s => Array.from(new TextEncoder().encode(s));
+  const I64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  function crypt(pw, salt) { const P = enc(pw), Sa = enc(salt), magic = enc('$1$');
+    let ctx = [...P, ...magic, ...Sa]; const alt = md5([...P, ...Sa, ...P]);
+    for (let pl = P.length; pl > 0; pl -= 16) ctx.push(...alt.slice(0, Math.min(16, pl)));
+    for (let i = P.length; i; i >>= 1) ctx.push(i & 1 ? 0 : P[0]);
+    let f = md5(ctx);
+    for (let i = 0; i < 1000; i++) { let c = [];
+      c.push(...(i & 1 ? P : f)); if (i % 3) c.push(...Sa); if (i % 7) c.push(...P); c.push(...(i & 1 ? f : P));
+      f = md5(c); }
+    let r = ''; const to64 = (v, n) => { while (n--) { r += I64[v & 63]; v >>= 6; } };
+    for (const [a, b, c] of [[0,6,12],[1,7,13],[2,8,14],[3,9,15],[4,10,5]]) to64((f[a] << 16) | (f[b] << 8) | f[c], 4);
+    to64(f[11], 2); return '$1$' + salt + '$' + r; }
+  // "enable secret 5 $1$mERr$..." の末尾ハッシュが pw と一致するか
+  function check(hash, pw) { const m = /^\$1\$([^$]{0,8})\$/.exec(hash || ''); if (!m) return null; return crypt(pw, m[1]) === hash; }
+  return { crypt, check };
+})();
+// ---- Twofish (encrypt only, 128-bit key) + EAX(CTR) + PT obfuscation ----
+const PKT = (() => {
+  const T = [
+    [[8,1,7,13,6,15,3,2,0,11,5,9,14,12,10,4],[14,12,11,8,1,2,3,5,15,4,10,6,7,0,9,13],[11,10,5,14,6,13,9,0,12,8,15,3,2,4,7,1],[13,7,15,4,1,2,6,14,9,11,3,0,8,5,12,10]],
+    [[2,8,11,13,15,7,6,14,3,1,9,4,0,10,12,5],[1,14,2,11,4,12,3,7,6,13,10,5,15,9,0,8],[4,12,7,5,1,6,9,10,0,14,13,8,2,11,3,15],[11,9,5,1,12,3,13,14,6,4,7,15,2,0,8,10]]];
+  const ror4 = (x, n) => ((x >> n) | (x << (4 - n))) & 15;
+  const Q = [0, 1].map(qi => { const t = T[qi], o = new Uint8Array(256);
+    for (let x = 0; x < 256; x++) { let a = x >> 4, b = x & 15;
+      let a1 = a ^ b, b1 = (a ^ ror4(b, 1) ^ ((8 * a) & 15)) & 15;
+      let a2 = t[0][a1], b2 = t[1][b1];
+      let a3 = a2 ^ b2, b3 = (a2 ^ ror4(b2, 1) ^ ((8 * a2) & 15)) & 15;
+      o[x] = (t[3][b3] << 4) | t[2][a3]; }
+    return o; });
+  const gmul = (a, b, p) => { let r = 0; while (b) { if (b & 1) r ^= a; a <<= 1; if (a & 0x100) a ^= p; b >>= 1; } return r; };
+  const MDS = [[0x01,0xEF,0x5B,0x5B],[0x5B,0xEF,0xEF,0x01],[0xEF,0x5B,0x01,0xEF],[0xEF,0x01,0xEF,0x5B]];
+  const RS = [[0x01,0xA4,0x55,0x87,0x5A,0x58,0xDB,0x9E],[0xA4,0x56,0x82,0xF3,0x1E,0xC6,0x68,0xE5],[0x02,0xA1,0xFC,0xC1,0x47,0xAE,0x3D,0x19],[0xA4,0x55,0x87,0x5A,0x58,0xDB,0x9E,0x03]];
+  const bytes = w => [w & 255, (w >>> 8) & 255, (w >>> 16) & 255, (w >>> 24) & 255];
+  const word = b => (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+  const rol = (x, n) => ((x << n) | (x >>> (32 - n))) >>> 0;
+  const ror = (x, n) => ((x >>> n) | (x << (32 - n))) >>> 0;
+  function h(X, L) { const y = bytes(X), l0 = bytes(L[0]), l1 = bytes(L[1]);
+    const [q0, q1] = Q;
+    const z = [q1[q0[q0[y[0]] ^ l1[0]] ^ l0[0]], q0[q0[q1[y[1]] ^ l1[1]] ^ l0[1]],
+               q1[q1[q0[y[2]] ^ l1[2]] ^ l0[2]], q0[q1[q1[y[3]] ^ l1[3]] ^ l0[3]]];
+    const o = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) o[i] ^= gmul(MDS[i][j], z[j], 0x169);
+    return word(o); }
+  function makeKey(key) { // 16 bytes
+    const M = [0, 1, 2, 3].map(i => word(key.slice(4 * i, 4 * i + 4)));
+    const Me = [M[0], M[2]], Mo = [M[1], M[3]];
+    const S = [0, 1].map(i => { const s = [0, 0, 0, 0];
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) s[r] ^= gmul(RS[r][c], key[8 * i + c], 0x14D);
+      return word(s); });
+    const SL = [S[1], S[0]], K = [];
+    for (let i = 0; i < 20; i++) { const A = h(Math.imul(2 * i, 0x01010101) >>> 0, Me);
+      const B = rol(h(Math.imul(2 * i + 1, 0x01010101) >>> 0, Mo), 8);
+      K.push((A + B) >>> 0, rol((A + 2 * B) >>> 0, 9)); }
+    // precompute g tables
+    const G = [0, 1, 2, 3].map(() => new Uint32Array(256));
+    { const [q0, q1] = Q, l0 = bytes(SL[0]), l1 = bytes(SL[1]);
+      const qs = [x => q1[q0[q0[x] ^ l1[0]] ^ l0[0]], x => q0[q0[q1[x] ^ l1[1]] ^ l0[1]],
+                  x => q1[q1[q0[x] ^ l1[2]] ^ l0[2]], x => q0[q1[q1[x] ^ l1[3]] ^ l0[3]]];
+      for (let x = 0; x < 256; x++) for (let k = 0; k < 4; k++) { const z = qs[k](x), o = [0, 0, 0, 0];
+        for (let i = 0; i < 4; i++) o[i] = gmul(MDS[i][k], z, 0x169);
+        G[k][x] = word(o); } }
+    return { K, G }; }
+  function encryptBlock(ks, p) { const { K, G } = ks;
+    const g = X => (G[0][X & 255] ^ G[1][(X >>> 8) & 255] ^ G[2][(X >>> 16) & 255] ^ G[3][X >>> 24]) >>> 0;
+    let R = [0, 1, 2, 3].map(i => (word(p.slice(4 * i, 4 * i + 4)) ^ K[i]) >>> 0);
+    for (let r = 0; r < 16; r++) { const T0 = g(R[0]), T1 = g(rol(R[1], 8));
+      const F0 = (T0 + T1 + K[2 * r + 8]) >>> 0, F1 = (T0 + 2 * T1 + K[2 * r + 9]) >>> 0;
+      const n2 = ror((R[2] ^ F0) >>> 0, 1), n3 = (rol(R[3], 1) ^ F1) >>> 0;
+      R = [n2, n3, R[0], R[1]]; }
+    const C = [R[2] ^ K[4], R[3] ^ K[5], R[0] ^ K[6], R[1] ^ K[7]];
+    const out = new Uint8Array(16); C.forEach((w, i) => out.set(bytes(w >>> 0), 4 * i)); return out; }
+  const KS = makeKey(new Uint8Array(16).fill(137));
+  const E = b => encryptBlock(KS, b);
+  const dbl = b => { const o = new Uint8Array(16); let c = 0;
+    for (let i = 15; i >= 0; i--) { const v = (b[i] << 1) | c; o[i] = v & 255; c = v >> 8; }
+    if (b[0] & 0x80) o[15] ^= 0x87; return o; };
+  const xor = (a, b) => a.map((v, i) => v ^ b[i]);
+  function cmac(m) { const K1 = dbl(E(new Uint8Array(16))); let x = new Uint8Array(16);
+    const n = m.length / 16; for (let i = 0; i < n - 1; i++) x = E(xor(x, m.slice(16 * i, 16 * i + 16)));
+    return E(xor(xor(x, m.slice(16 * (n - 1))), K1)); }
+  async function inflate(u8) {
+    if (typeof DecompressionStream === 'undefined') { if (typeof pako !== 'undefined') return pako.inflate(u8); throw new Error('inflate unavailable'); }
+    const ds = new DecompressionStream('deflate');
+    const stream = new Blob([u8]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer()); }
+  async function decrypt(data) { const n = data.length;
+    const p = new Uint8Array(n); for (let i = 0; i < n; i++) p[i] = data[n - 1 - i] ^ ((n - i * n) & 255);
+    const ct = p.subarray(0, n - 16);
+    const iv = new Uint8Array(32); iv.fill(16, 16);
+    const ctr = cmac(iv); const out = new Uint8Array(ct.length);
+    for (let i = 0; i < ct.length; i += 16) { const ks = E(ctr);
+      for (let j = 0; j < 16 && i + j < ct.length; j++) out[i + j] = ct[i + j] ^ ks[j];
+      for (let k = 15; k >= 0; k--) { ctr[k] = (ctr[k] + 1) & 255; if (ctr[k]) break; } }
+    const m = out.length; for (let i = 0; i < m; i++) out[i] ^= (m - i) & 255;
+    const xml = await inflate(out.subarray(4));
+    return new TextDecoder('utf-8').decode(xml); }
+  return { decrypt, _Q: Q, _h: h, _E: E, _encryptBlock: encryptBlock, _makeKey: makeKey };
+})();
+// ---- 授業回ごとの要件（新しい回はここに足す） ----
+const SPECS = {
+  '3': {
+    label: '第3回 ルータとスイッチ', pages: { table: 'p.28', diagram: 'p.27', steps: 'p.29', trouble: 'p.30' },
+    routerModel: '2811', switchModel: '2950T', pcModel: 'PC-PT',
+    routers: { RT0: { if: { 'FastEthernet0/0': '10.3.1.1/24', 'FastEthernet0/1': '10.3.2.1/24' }, routes: [] } },
+    switches: { SW1: { ip: '10.3.1.2/24', gw: '10.3.1.1' }, SW2: { ip: '10.3.2.2/24', gw: '10.3.2.1' } },
+    pcs: { PC0: { ip: '10.3.1.11/24', gw: '10.3.1.1' }, PC1: { ip: '10.3.1.12/24', gw: '10.3.1.1' },
+           PC2: { ip: '10.3.2.11/24', gw: '10.3.2.1' }, PC3: { ip: '10.3.2.12/24', gw: '10.3.2.1' } },
+    enable: 'class', routerLogin: 'telnet', vtyPassword: 'cisco',
+    shot: { from: 'PC1', to: 'SW2', how: 'telnet' },
+  },
+  '4': {
+    label: '第4回 ルータ2台のネットワークとSSH', pages: { table: 'p.35', diagram: 'p.32', steps: 'p.34', ssh: 'p.26', trouble: '確認①〜③の「うまくいかないとき」' },
+    routerModel: '2811', switchModel: '2950T', pcModel: 'PC-PT',
+    routers: {
+      RT1: { if: { 'FastEthernet0/0': '10.4.1.1/24', 'FastEthernet0/1': '10.4.3.1/24' }, routes: [{ net: '10.4.2.0/24', via: '10.4.3.2' }] },
+      RT2: { if: { 'FastEthernet0/0': '10.4.3.2/24', 'FastEthernet0/1': '10.4.2.1/24' }, routes: [{ net: '10.4.1.0/24', via: '10.4.3.1' }] } },
+    switches: { SW1: { ip: '10.4.1.2/24', gw: '10.4.1.1' }, SW2: { ip: '10.4.2.2/24', gw: '10.4.2.1' } },
+    pcs: { PC0: { ip: '10.4.1.11/24', gw: '10.4.1.1' }, PC1: { ip: '10.4.1.12/24', gw: '10.4.1.1' },
+           PC2: { ip: '10.4.2.11/24', gw: '10.4.2.1' }, PC3: { ip: '10.4.2.12/24', gw: '10.4.2.1' } },
+    enable: 'class', routerLogin: 'ssh', vtyPassword: 'cisco', sshUserPassword: 'cisco',
+    shot: { from: 'PC3', to: 'RT1', how: 'ssh' },
+  },
+};
+
+const NET = (() => {
+  const ip2n = s => { const p = String(s || '').split('.').map(Number); if (p.length !== 4 || p.some(x => !(x >= 0 && x <= 255))) return null; return ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0; };
+  const mask2len = m => { const n = ip2n(m); if (n === null) return null; let l = 0; while (l < 32 && (n & (0x80000000 >>> l))) l++; return ((n << l) >>> 0) === 0 ? l : null; };
+  const len2mask = l => l === 0 ? 0 : (0xFFFFFFFF << (32 - l)) >>> 0;
+  const n2ip = n => [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+  const same = (a, b, len) => { const A = ip2n(a), B = ip2n(b); if (A === null || B === null || len == null) return false; const m = len2mask(len); return ((A & m) >>> 0) === ((B & m) >>> 0); };
+  const netOf = (ip, len) => n2ip((ip2n(ip) & len2mask(len)) >>> 0) + '/' + len;
+  const cidr = s => { const [ip, l] = s.split('/'); return { ip, len: Number(l), mask: n2ip(len2mask(Number(l))) }; };
+  return { ip2n, mask2len, len2mask, n2ip, same, netOf, cidr };
+})();
+
+// ---- pkt の XML から機器・配線を取り出す ----
+function readNetwork(doc) {
+  const kids = (el, tag) => el ? Array.from(el.childNodes).filter(n => n.nodeType === 1 && n.nodeName === tag) : [];
+  const kid = (el, tag) => kids(el, tag)[0] || null;
+  const txt = (el, tag) => { const k = kid(el, tag); return k ? (k.textContent || '').trim() : ''; };
+  const root = doc.documentElement;
+  const net = kid(root, 'NETWORK');
+  const devs = [], byRef = {};
+  for (const d of kids(kid(net, 'DEVICES'), 'DEVICE')) {
+    const e = kid(d, 'ENGINE'), t = kid(e, 'TYPE');
+    const dev = { kind: (t && t.textContent || '').trim(), model: t ? t.getAttribute('model') || '' : '', name: txt(e, 'NAME'),
+      ref: txt(e, 'SAVE_REF_ID').replace('save-ref-id:', ''), ports: [], gateway: txt(e, 'GATEWAY') };
+    const rc = kid(e, 'RUNNINGCONFIG');
+    if (rc) dev.cfg = kids(rc, 'LINE').map(l => l.textContent || '');
+    const sec = kid(e, 'SECURITY');
+    if (sec) dev.rsaBits = Number(txt(sec, 'MODULUS_BITS') || 0), dev.rsaKey = !!txt(sec, 'RSA_KEY');
+    for (const p of Array.from(e.getElementsByTagName('PORT'))) {
+      const mac = txt(p, 'MACADDRESS'); if (!mac) continue;
+      dev.ports.push({ mac, ip: txt(p, 'IP'), mask: txt(p, 'SUBNET'), gw: txt(p, 'PORT_GATEWAY'), dhcp: txt(p, 'PORT_DHCP_ENABLE') === 'true' });
+    }
+    devs.push(dev); byRef[dev.ref] = dev;
+  }
+  const links = [];
+  for (const l of kids(kid(net, 'LINKS'), 'LINK')) {
+    const c = kid(l, 'CABLE'); if (!c) continue;
+    const ps = kids(c, 'PORT').map(p => p.textContent.trim());
+    const a = byRef[txt(c, 'FROM').replace('save-ref-id:', '')], b = byRef[txt(c, 'TO').replace('save-ref-id:', '')];
+    if (a && b) links.push({ a, ap: ps[0], b, bp: ps[1], type: txt(c, 'TYPE') });
+  }
+  return { version: txt(root, 'VERSION'), devs, links };
+}
+
+function parseIOS(lines) {
+  const r = { hostname: null, secret: null, enablePassword: null, vty: {}, ifaces: {}, dgw: null, routes: [], users: [], domain: null, sshVer: null };
+  let cur = null;
+  for (const raw of lines) {
+    const s = raw.replace(/\s+$/, ''); if (!s || s === '!') { cur = null; continue; }
+    if (!/^\s/.test(s)) { cur = null; let m;
+      if ((m = /^hostname (\S+)/.exec(s))) r.hostname = m[1];
+      else if ((m = /^enable secret (?:\d+ )?(\S+)/.exec(s))) r.secret = m[1];
+      else if ((m = /^enable password (?:\d+ )?(\S+)/.exec(s))) r.enablePassword = m[1];
+      else if ((m = /^ip default-gateway (\S+)/.exec(s))) r.dgw = m[1];
+      else if ((m = /^ip route (\S+) (\S+) (\S+)/.exec(s))) r.routes.push({ dest: m[1], mask: m[2], via: m[3] });
+      else if ((m = /^ip domain-name (\S+)/.exec(s))) r.domain = m[1];
+      else if ((m = /^ip ssh version (\d)/.exec(s))) r.sshVer = m[1];
+      else if ((m = /^username (\S+)(?: privilege \d+)? (secret|password) (?:\d+ )?(\S+)/.exec(s))) r.users.push({ name: m[1], kind: m[2], value: m[3] });
+      else if ((m = /^interface (\S+)/.exec(s))) { cur = { t: 'if', n: m[1] }; r.ifaces[m[1]] = { ip: null, mask: null, shutdown: false, vlan: null }; }
+      else if ((m = /^line vty (\d+)(?: (\d+))?/.exec(s))) { cur = { t: 'vty', n: m[1] + ' ' + (m[2] || m[1]) }; r.vty[cur.n] = { password: null, login: null, transport: null }; }
+    } else if (cur) { const t = s.trim(); let m;
+      if (cur.t === 'if') { const i = r.ifaces[cur.n];
+        if ((m = /^ip address (\S+) (\S+)/.exec(t))) { i.ip = m[1]; i.mask = m[2]; }
+        else if (t === 'shutdown') i.shutdown = true;
+        else if ((m = /^switchport access vlan (\d+)/.exec(t))) i.vlan = m[1];
+      } else if (cur.t === 'vty') { const v = r.vty[cur.n];
+        if ((m = /^password (?:\d+ )?(\S+)/.exec(t))) v.password = m[1];
+        else if (/^login local/.test(t)) v.login = 'local';
+        else if (/^login/.test(t)) v.login = 'line';
+        else if ((m = /^transport input (.+)/.exec(t))) v.transport = m[1].trim();
+      }
+    }
+  }
+  return r;
+}
+
+// ---- 診断本体 ----
+function diagnose(xmlDoc, specKey, opts = {}) {
+  const spec = SPECS[specKey], P = spec.pages;
+  const { devs, links, version } = readNetwork(xmlDoc);
+  const items = []; // {level:'fix'|'check'|'info', who, text, hint}
+  const add = (level, who, text, hint) => items.push({ level, who, text, hint: hint || '' });
+  const routers = devs.filter(d => d.kind === 'Router'), switches = devs.filter(d => d.kind === 'Switch'), pcs = devs.filter(d => d.kind === 'Pc');
+  for (const d of [...routers, ...switches]) d.ios = parseIOS(d.cfg || []);
+  const label = d => (d.ios && d.ios.hostname && d.ios.hostname !== d.name) ? `${d.ios.hostname}（表示名 ${d.name}）` : d.name;
+  const linked = new Set(); links.forEach(l => { linked.add(l.a); linked.add(l.b); });
+
+  // 1. 機器
+  const nR = Object.keys(spec.routers).length, nS = Object.keys(spec.switches).length, nP = Object.keys(spec.pcs).length;
+  const badR = routers.filter(d => d.model !== spec.routerModel), badS = switches.filter(d => !d.model.startsWith(spec.switchModel + '-') && d.model !== spec.switchModel);
+  if (routers.length !== nR) add('fix', 'ファイル全体', `ルータが ${routers.length} 台あります（この回は ${nR} 台）。`, `構成図（${P.diagram}）と見比べよう。どこにもつながっていない機器が残っていないかも確かめる。`);
+  if (switches.length !== nS) add('fix', 'ファイル全体', `スイッチが ${switches.length} 台あります（この回は ${nS} 台）。`, `構成図（${P.diagram}）と見比べよう。`);
+  if (pcs.length !== nP) add('fix', 'ファイル全体', `PC が ${pcs.length} 台あります（この回は ${nP} 台）。`, `構成図（${P.diagram}）と見比べよう。`);
+  badR.forEach(d => add('check', label(d), `ルータの機種が ${d.model} です（指定は ${spec.routerModel}）。`, '機種が違うと、コマンドやポート名が資料と変わることがある。'));
+  badS.forEach(d => add('check', label(d), `スイッチの機種が ${d.model} です（指定は ${spec.switchModel}）。`, '指定どおりの機種で作ろう。'));
+  devs.filter(d => ['Router', 'Switch', 'Pc'].includes(d.kind) && !linked.has(d)).forEach(d => add('check', d.name, 'どこにもケーブルがつながっていません。', '使わない機器なら削除しよう。'));
+
+  // 2. ケーブル
+  const role = d => d.kind === 'Switch' ? 'S' : 'H';
+  const linkUp = new Set();
+  for (const l of links) {
+    if (!['Router', 'Switch', 'Pc'].includes(l.a.kind) || !['Router', 'Switch', 'Pc'].includes(l.b.kind)) continue;
+    const need = role(l.a) === role(l.b) ? 'eCrossOver' : 'eStraightThrough';
+    if (l.type !== need) add('fix', `${l.a.name}–${l.b.name}`, `ケーブルの種類が違います（${need === 'eCrossOver' ? 'クロス' : 'ストレート'}でつなぐ所）。`, 'Packet Tracer の構成図で、リンクの両端が赤い▼になっていないか見てみよう。ルータどうしはクロス、それ以外はストレート。');
+    else linkUp.add(l);
+  }
+
+  // 機器を要件の名前に対応づける（ホスト名 → 表示名 → アドレス）
+  const pick = (list, name, ipOf) => list.find(d => d.ios && d.ios.hostname === name) || list.find(d => d.name === name) || (ipOf ? list.find(ipOf) : null);
+  const mapR = {}, mapS = {}, mapP = {};
+  for (const [n, r] of Object.entries(spec.routers)) mapR[n] = pick(routers, n, d => Object.entries(r.if).every(([k, v]) => d.ios.ifaces[k] && d.ios.ifaces[k].ip === NET.cidr(v).ip));
+  for (const [n, s] of Object.entries(spec.switches)) mapS[n] = pick(switches, n, d => d.ios.ifaces.Vlan1 && d.ios.ifaces.Vlan1.ip === NET.cidr(s.ip).ip);
+  const pcIP = d => { const p = d.ports.find(q => q.ip) || d.ports[0] || {}; return { ip: p.ip || '', mask: p.mask || '', gw: p.gw || d.gateway || '', dhcp: !!p.dhcp }; };
+  for (const [n, p] of Object.entries(spec.pcs)) mapP[n] = pcs.find(d => pcIP(d).ip === NET.cidr(p.ip).ip) || pcs.find(d => d.name === n) || null;
+
+  const checkEnable = (d, who) => { const io = d.ios;
+    if (!io.secret && !io.enablePassword) add('fix', who, '特権パスワード（enable secret）が設定されていません。', `enable で特権モードに入れない。設定方法は ${P.steps} と第3回の資料へ。`);
+    else if (!io.secret && io.enablePassword) add('fix', who, '特権パスワードが enable password で設定されています。', 'enable secret で設定しよう（設定ファイル上でハッシュ化され、そのままでは読めなくなる）。');
+    else { const ok = MD5C.check(io.secret, spec.enable);
+      if (ok === false) add('fix', who, `特権パスワード（enable secret）が ${spec.enable} ではないようです。`, '打ち間違いや、telnet 用のパスワードとの取り違えがないか。もう一度 enable secret を設定し直そう。');
+      if (io.enablePassword) add('check', who, 'enable secret のほかに enable password も残っています。', 'secret が優先されるので動作はするが、no enable password で消しておこう。'); } };
+  const vty04 = io => io.vty['0 4'] || io.vty['0 15'] || Object.entries(io.vty).find(([k]) => k.startsWith('0 '))?.[1] || null;
+  const checkTelnetVty = (d, who) => { const v = vty04(d.ios);
+    if (!v || !v.login) add('fix', who, 'line vty 0 4 に login が設定されていません。', 'telnet でログインできない（「Password required, but none set」や切断になる）。line vty 0 4 で password と login を設定しよう。');
+    else if (v.login === 'line' && v.password !== spec.vtyPassword) add('fix', who, v.password ? `telnet 用のパスワード（line vty）が ${spec.vtyPassword} ではありません（${v.password} になっています）。` : 'telnet 用のパスワード（line vty の password）が設定されていません。', `特権パスワード（enable secret）と取り違えていないか確かめよう。設定値は ${P.diagram} の表。`);
+    if (v && v.transport && !/telnet|all/.test(v.transport)) add('fix', who, `line vty が transport input ${v.transport} になっていて、telnet を受け付けません。`, 'スイッチは telnet でログインする設定にしよう。'); };
+
+  // 3. ルータ
+  for (const [n, r] of Object.entries(spec.routers)) {
+    const d = mapR[n]; if (!d) { add('fix', n, `${n} が見つかりません。`, `ホスト名を ${n} にしたか、${P.diagram} の構成図と見比べよう。`); continue; }
+    const io = d.ios, who = n;
+    if (io.hostname !== n) add('fix', who, io.hostname && io.hostname !== 'Router' ? `ホスト名が ${io.hostname} になっています（正しくは ${n}）。` : `ホスト名が設定されていません（Router のまま）。`, '表示名（Display Name）を変えても、ホスト名は変わらない。CLI で hostname を設定し、プロンプトに名前が出るか確かめよう。');
+    for (const [ifn, v] of Object.entries(r.if)) { const e = NET.cidr(v), i = io.ifaces[ifn];
+      if (!i || !i.ip) add('fix', who, `${ifn} に IP アドレスが設定されていません。`, `show ip interface brief で確かめよう。設定値は ${P.table} の表。`);
+      else if (i.ip !== e.ip || i.mask !== e.mask) add('fix', who, `${ifn} のアドレスが ${i.ip} ${i.mask} になっていて、表と違います。`, `${P.table} の表と見比べよう。ケーブルをつないだポート（Fa0/0・Fa0/1）が構成図と同じかも確かめる。`);
+      if (i && i.shutdown) add('fix', who, `${ifn} が shutdown のままです。`, 'ルータのインタフェースは最初は止まっている。no shutdown で有効にし、show ip interface brief で up / up になるか確かめよう。'); }
+    for (const rt of r.routes) { const e = NET.cidr(rt.net);
+      const got = io.routes.filter(x => x.dest === e.ip && x.mask === e.mask);
+      if (!got.length) add('fix', who, `${rt.net} への静的ルート（ip route）がありません。`, `${n} は、直接つながっていない ${rt.net} を知らない。show ip route に S の行があるか確かめよう（${P.steps}）。`);
+      else if (!got.some(x => x.via === rt.via)) { const via = got[0].via;
+        const own = Object.values(io.ifaces).some(i => i.ip === via);
+        add('fix', who, `${rt.net} への静的ルートの「次に渡すルータ」が ${via} になっています。`, own ? '自分のインタフェースのアドレスを書いていないか。相手ルータの、ルータ間ネットワーク側のアドレスを書こう。' : '相手ルータの、ルータ間ネットワーク側のアドレスになっているか、構成図で確かめよう。'); } }
+    io.routes.filter(x => !r.routes.some(rt => NET.cidr(rt.net).ip === x.dest)).forEach(x => add('check', who, `要件にない静的ルート（ip route ${x.dest} ${x.mask} ${x.via}）があります。`, '試しに入れたものなら、no ip route … で消しておこう。'));
+    checkEnable(d, who);
+    if (spec.routerLogin === 'telnet') checkTelnetVty(d, who);
+    else { const v = vty04(io);
+      if (!io.domain) add('fix', who, 'ip domain-name が設定されていません。', `SSH の鍵を作る前に必要（${P.ssh}）。`);
+      if (!(d.rsaBits > 0 || d.rsaKey)) add('fix', who, 'SSH 用の RSA 鍵が作られていません。', `crypto key generate rsa で、鍵の長さ 1024 を指定しよう（${P.ssh}）。show ip ssh で確かめられる。`);
+      else if (d.rsaBits && d.rsaBits < 768) add('fix', who, `RSA 鍵の長さが ${d.rsaBits} です。`, 'SSH バージョン 2 には 768 以上が必要。1024 で作り直そう。');
+      if (!io.users.length) add('fix', who, 'username（SSH のユーザ名）が設定されていません。', `username 学籍番号 secret … を設定しよう（${P.ssh}）。`);
+      for (const u of io.users) {
+        if (u.name === '2024z999') add('fix', who, 'ユーザ名が例の 2024z999 のままです。', '自分の学籍番号に置き換えよう。');
+        else if (opts.sid && u.name.toLowerCase() !== opts.sid.toLowerCase()) add('fix', who, `ユーザ名が ${u.name} になっていて、入力した学籍番号と違います。`, '打ち間違いがないか確かめよう。');
+        if (u.kind === 'password') add('check', who, `username ${u.name} が password で設定されています。`, 'secret で設定しよう（ハッシュ化される）。');
+        else if (MD5C.check(u.value, spec.sshUserPassword) === false) add('fix', who, `username ${u.name} のパスワードが ${spec.sshUserPassword} ではないようです。`, '打ち間違いがないか確かめ、username … secret … を設定し直そう。'); }
+      if (!v || v.login !== 'local') add('fix', who, 'line vty 0 4 が login local になっていません。', 'ユーザ名とパスワードでログインするには login local。');
+      if (!v || !v.transport || !/^ssh$/.test(v.transport)) add('fix', who, v && v.transport ? `line vty が transport input ${v.transport} になっています。` : 'line vty に transport input ssh がありません。', 'SSH だけを受け付けるには transport input ssh。telnet も受け付けたままだと、PART 3 で見た危険が残る。');
+      if (io.sshVer !== '2') add('info', who, 'ip ssh version 2 が設定されていません。', `資料（${P.ssh}）では version 2 を指定している。`); }
+  }
+
+  // 4. スイッチ
+  for (const [n, s] of Object.entries(spec.switches)) {
+    const d = mapS[n]; if (!d) { add('fix', n, `${n} が見つかりません。`, `ホスト名を ${n} にしたか、${P.diagram} の構成図と見比べよう。`); continue; }
+    const io = d.ios, who = n, e = NET.cidr(s.ip), v1 = io.ifaces.Vlan1;
+    if (io.hostname !== n) add('fix', who, io.hostname && io.hostname !== 'Switch' ? `ホスト名が ${io.hostname} になっています（正しくは ${n}）。` : 'ホスト名が設定されていません（Switch のまま）。', '表示名（Display Name）を変えても、ホスト名は変わらない。CLI で hostname を設定し、プロンプトに名前が出るか確かめよう。');
+    if (!v1 || !v1.ip) add('fix', who, 'interface vlan 1 に IP アドレスが設定されていません。', `スイッチを管理するためのアドレス。設定値は ${P.table} の表。`);
+    else { if (v1.ip !== e.ip || v1.mask !== e.mask) add('fix', who, `vlan 1 のアドレスが ${v1.ip} ${v1.mask} になっていて、表と違います。`, `${P.table} の表と見比べよう。`);
+      if (v1.shutdown) add('fix', who, 'interface vlan 1 が shutdown のままです。', 'no shutdown で有効にしよう。'); }
+    if (!io.dgw) add('fix', who, 'ip default-gateway が設定されていません。', '別のネットワークの PC へ返事を送れないので、ルータの向こうから telnet できない。');
+    else if (v1 && v1.ip && !NET.same(io.dgw, v1.ip, NET.mask2len(v1.mask))) add('fix', who, `ip default-gateway（${io.dgw}）が、${n} と同じネットワークにありません。`, `デフォルトゲートウェイは「${n} と同じネットワークにある、ルータのインタフェース」。構成図で、${n} の側にあるルータのアドレスを確かめよう。`);
+    else if (io.dgw !== s.gw) add('fix', who, `ip default-gateway が ${io.dgw} になっていて、表と違います。`, `${P.table} の表と見比べよう。`);
+    Object.entries(io.ifaces).filter(([k, i]) => k !== 'Vlan1' && i.ip).forEach(([k]) => add('check', who, `${k} に IP アドレスが設定されています。`, 'スイッチの IP アドレスは interface vlan 1 に設定する。'));
+    Object.entries(io.ifaces).filter(([k, i]) => i.vlan && i.vlan !== '1').forEach(([k, i]) => add('check', who, `${k} が vlan ${i.vlan} に入っています。`, 'この回では VLAN は使わない。'));
+    checkEnable(d, who); checkTelnetVty(d, who);
+  }
+
+  // 5. PC
+  const seenIP = {};
+  for (const [n, p] of Object.entries(spec.pcs)) {
+    const d = mapP[n], e = NET.cidr(p.ip);
+    if (!d) { const near = pcs.filter(x => !Object.values(mapP).includes(x));
+      const cand = near.find(x => x.name === n);
+      if (cand) { const c = pcIP(cand);
+        add('fix', n, c.ip ? `${n} の IP アドレスが ${c.ip} になっていて、表と違います。` : `${n} に IP アドレスが設定されていません。`, `Desktop → IP Configuration で、${P.table} の表のとおりに設定しよう。`); }
+      else add('fix', n, `表の ${n}（${e.ip}）にあたる PC が見つかりません。`, `PC を置いたか、IP アドレスを ${P.table} の表のとおりに設定したか確かめよう。`);
+      continue; }
+    const c = pcIP(d), who = d.name === n ? n : `${n}（表示名 ${d.name}）`;
+    if (d.name !== n) add('check', who, `表で ${n} のアドレスの PC が、表示名 ${d.name} になっています。`, '表示名とアドレスの組み合わせを構成図と見比べよう（提出のスクリーンショットで使う PC を間違えやすい）。');
+    if (!c.ip) { add('fix', who, 'IP アドレスが設定されていません。', `Desktop → IP Configuration で、${P.table} の表のとおりに設定しよう。`); continue; }
+    if (c.ip !== e.ip) add('fix', who, `IP アドレスが ${c.ip} になっていて、表と違います。`, `${P.table} の表と見比べよう。`);
+    if (c.dhcp) add('fix', who, 'DHCP になっています。', 'この回は Static で設定する。');
+    if (c.mask !== e.mask) add('fix', who, `サブネットマスクが ${c.mask || '未設定'} になっています。`, `${P.table} の表と見比べよう。`);
+    if (!c.gw || c.gw === '0.0.0.0') add('fix', who, 'デフォルトゲートウェイが設定されていません。', '別のネットワークへ送れない。');
+    else if (c.gw === c.ip) add('fix', who, 'デフォルトゲートウェイに自分自身のアドレスを入れています。', `同じネットワークにある、ルータのインタフェースのアドレスにしよう（${P.table}）。`);
+    else if (!NET.same(c.gw, c.ip, NET.mask2len(c.mask))) add('fix', who, `デフォルトゲートウェイ（${c.gw}）が、PC と同じネットワークにありません。`, '同じネットワークにある、ルータのインタフェースのアドレスにしよう。');
+    else if (c.gw !== p.gw) add('fix', who, `デフォルトゲートウェイが ${c.gw} になっていて、表と違います。`, `${P.table} の表と見比べよう。`);
+  }
+  for (const d of pcs) { const c = pcIP(d); if (!c.ip) { if (!Object.values(mapP).includes(d) && !Object.keys(spec.pcs).includes(d.name)) add('fix', d.name, 'IP アドレスが設定されていません。', `${P.table} の表のとおりに設定しよう。`); continue; }
+    (seenIP[c.ip] = seenIP[c.ip] || []).push(d.name); }
+  Object.entries(seenIP).filter(([, v]) => v.length > 1).forEach(([ip, v]) => add('fix', v.join('・'), `同じ IP アドレス（${ip}）が複数の PC に設定されています。`, `${P.table} の表と見比べよう。`));
+
+  // 6. 通信の見込み
+  const sim = buildSim(devs, links, linkUp);
+  const order = Object.keys(spec.pcs).map(n => mapP[n]).filter(Boolean);
+  const pingRows = [];
+  for (const a of order) for (const b of order) if (a !== b) pingRows.push({ a, b, ok: sim.ping(a, b) });
+  const access = [];
+  const targets = [...Object.keys(spec.routers).map(n => ({ n, d: mapR[n], how: spec.routerLogin })), ...Object.keys(spec.switches).map(n => ({ n, d: mapS[n], how: 'telnet' }))];
+  for (const a of order) for (const t of targets) access.push({ a, t: t.n, how: t.how, ok: t.d ? sim.reach(a, t.d) : false });
+  const fails = pingRows.filter(r => !r.ok);
+  if (fails.length) add('fix', '通信', `PC どうしの ping が届かない組み合わせがあります（${fails.length} 組）。`, `下の「通信の見込み」で、どこから届かないかを見て、近いところから順に確かめよう（${P.trouble}）。`);
+  const afails = access.filter(r => !r.ok);
+  if (afails.length && !fails.length) add('fix', '通信', `ログインできない組み合わせがあります（${afails.map(r => `${pname(r.a, mapP)}→${r.t}`).slice(0, 6).join('、')}${afails.length > 6 ? ' など' : ''}）。`, '届かない相手のデフォルトゲートウェイや、ログインの設定を確かめよう。');
+
+  // ファイル名・学籍番号
+  if (opts.fileName && opts.sid) { const re = new RegExp('^' + opts.sid.replace(/[^0-9a-z]/gi, '') + '_\\d{6}\\.pkt$', 'i');
+    if (!re.test(opts.fileName)) add('check', 'ファイル名', `ファイル名が「${opts.fileName}」になっています。`, `「学籍番号_授業日6桁.pkt」（例：${opts.sid}_${specKey === '3' ? '261015' : '261019'}.pkt）にして提出しよう。`); }
+
+  // 一覧表
+  const summary = {
+    routers: Object.keys(spec.routers).map(n => ({ n, d: mapR[n] })), switches: Object.keys(spec.switches).map(n => ({ n, d: mapS[n] })),
+    pcs: Object.keys(spec.pcs).map(n => ({ n, d: mapP[n], c: mapP[n] ? pcIP(mapP[n]) : null })),
+  };
+  return { version, items, pingRows, access, summary, spec, mapP };
+}
+function pname(d, mapP) { const n = Object.keys(mapP).find(k => mapP[k] === d); return n || d.name; }
+
+// ---- 届くかどうかの簡易シミュレーション（L2 セグメント＋静的ルート） ----
+function buildSim(devs, links, linkUp) {
+  const parent = new Map(); devs.forEach(d => parent.set(d, d));
+  const f = x => { while (parent.get(x) !== x) x = parent.get(x); return x; };
+  const swPortUp = (d, port) => { if (d.kind !== 'Switch') return true; const i = d.ios.ifaces[port]; return !(i && i.shutdown); };
+  const up = links.filter(l => linkUp.has(l) && swPortUp(l.a, l.ap) && swPortUp(l.b, l.bp));
+  up.filter(l => l.a.kind === 'Switch' && l.b.kind === 'Switch').forEach(l => parent.set(f(l.a), f(l.b)));
+  const segs = new Map(); const segOf = new Map(); // endpoint key -> seg id
+  const addEp = (seg, dev, port) => { if (!segs.has(seg)) segs.set(seg, []); segs.get(seg).push({ dev, port }); };
+  up.forEach((l, i) => {
+    const sa = l.a.kind === 'Switch', sb = l.b.kind === 'Switch';
+    if (sa && !sb) addEp(f(l.a), l.b, l.bp); else if (sb && !sa) addEp(f(l.b), l.a, l.ap);
+    else if (!sa && !sb) { const k = 'd' + i; addEp(k, l.a, l.ap); addEp(k, l.b, l.bp); } });
+  devs.filter(d => d.kind === 'Switch').forEach(d => addEp(f(d), d, 'Vlan1'));
+  const addr = (dev, port) => {
+    if (dev.kind === 'Pc') { const p = dev.ports.find(q => q.ip) || {}; return p.ip ? { ip: p.ip, len: NET.mask2len(p.mask) } : null; }
+    const i = dev.ios && dev.ios.ifaces[port]; if (!i || !i.ip || i.shutdown) return null; return { ip: i.ip, len: NET.mask2len(i.mask) }; };
+  for (const [k, eps] of segs) eps.forEach(e => { e.a = addr(e.dev, e.port); segOf.set(e.dev.name + '|' + e.port + '|' + e.dev.ref, k); });
+  const findInSeg = (seg, ip) => (segs.get(seg) || []).find(e => e.a && e.a.ip === ip);
+  const segsOfDev = dev => [...segs.entries()].filter(([, eps]) => eps.some(e => e.dev === dev)).map(([k]) => k);
+  const hostParams = dev => { if (dev.kind === 'Pc') { const p = dev.ports.find(q => q.ip) || {}; return { ip: p.ip, len: NET.mask2len(p.mask), gw: p.gw || dev.gateway }; }
+    const v = dev.ios.ifaces.Vlan1; return v && v.ip && !v.shutdown ? { ip: v.ip, len: NET.mask2len(v.mask), gw: dev.ios.dgw } : null; };
+  function routerForward(r, dst, depth) {
+    if (depth > 8) return null;
+    for (const [pn, i] of Object.entries(r.ios.ifaces)) if (i.ip === dst && !i.shutdown) return r;
+    const conn = [];
+    for (const k of segsOfDev(r)) for (const e of segs.get(k)) if (e.dev === r && e.a) conn.push({ seg: k, a: e.a });
+    for (const c of conn) if (NET.same(dst, c.a.ip, c.a.len)) { const t = findInSeg(c.seg, dst); return t ? t.dev : null; }
+    let best = null;
+    for (const rt of r.ios.routes) { const len = NET.mask2len(rt.mask); if (len == null) continue;
+      if (NET.same(dst, rt.dest, len) && (!best || len > best.len)) best = { len, via: rt.via }; }
+    if (!best) return null;
+    for (const c of conn) if (NET.same(best.via, c.a.ip, c.a.len)) { const nh = findInSeg(c.seg, best.via); return nh && nh.dev.kind === 'Router' ? routerForward(nh.dev, dst, depth + 1) : null; }
+    return null; }
+  function deliver(src, dst) {
+    if (!dst) return null;
+    if (src.kind === 'Router') return routerForward(src, dst, 0);
+    const h = hostParams(src); if (!h || !h.ip || h.len == null) return null;
+    const segK = segsOfDev(src).find(k => segs.get(k).some(e => e.dev === src && e.a && e.a.ip === h.ip)); if (segK === undefined) return null;
+    if (NET.same(dst, h.ip, h.len)) { const t = findInSeg(segK, dst); if (t) return t.dev;
+      // プロキシ ARP：ルータが自分の別の側にある宛先の代わりに応答する（Cisco の既定動作）
+      for (const e of segs.get(segK)) if (e.dev.kind === 'Router' && e.a && !NET.same(dst, e.a.ip, e.a.len)) { const r = routerForward(e.dev, dst, 0); if (r) return r; }
+      return null; }
+    if (!h.gw) return null; const g = findInSeg(segK, h.gw); if (!g || g.dev.kind !== 'Router') return null;
+    return routerForward(g.dev, dst, 0); }
+  const ipOf = d => { if (d.kind === 'Router') return Object.values(d.ios.ifaces).filter(i => i.ip && !i.shutdown).map(i => i.ip); const h = hostParams(d); return h && h.ip ? [h.ip] : []; };
+  const twoWay = (a, b) => { const A = ipOf(a); if (!A.length) return false; return ipOf(b).some(bip => deliver(a, bip) === b && A.some(aip => deliver(b, aip) === a)); };
+  return { ping: twoWay, reach: twoWay };
+}
+// ---- 画面 ----
+(() => {
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const keys = Object.keys(SPECS);
+  const lesson = window.PKT_LESSON;
+  const sid = $('#sid'); sid.value = store.get('pktcheck.sid') || '';
+  let last = null;
+  { const p = SPECS[lesson].pages; $('#lesson-note').textContent = `${SPECS[lesson].label}。資料の ${p.diagram}（構成図）と ${p.table}（アドレスの表）。`; }
+  if (SPECS[lesson].routerLogin === 'ssh') $('#sid-note').textContent = '入力すると、SSH のユーザ名とファイル名も確かめます。';
+  sid.addEventListener('change', () => { store.set('pktcheck.sid', sid.value.trim()); if (last) run(last); });
+
+  const drop = $('#drop'), file = $('#file');
+  drop.addEventListener('click', () => file.click());
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) load(f); });
+  file.addEventListener('change', () => { if (file.files[0]) load(file.files[0]); file.value = ''; });
+
+  async function load(f) {
+    $('#out').innerHTML = `<div class="status"><span class="verdict">読み取り中…</span><span class="file">${esc(f.name)}</span></div>`;
+    try {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      const xml = await PKT.decrypt(buf);
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      if (doc.getElementsByTagName('parsererror').length || doc.documentElement.nodeName !== 'PACKETTRACER5') throw new Error('xml');
+      last = { name: f.name, doc }; run(last);
+    } catch (e) {
+      last = null;
+      $('#out').innerHTML = `<div class="err"><b>読み取れませんでした。</b> ${esc(f.name)} は、Packet Tracer で保存した .pkt ファイルではないか、古い形式のようです。Packet Tracer 9 で開き、File → Save As で保存し直してから読み込んでください。</div>`;
+    }
+  }
+
+  function run({ name, doc }) {
+    const id = sid.value.trim();
+    // 別の回のファイルらしいとき（PC のアドレスの先頭 2 つで判定）
+    const pre = ip => String(ip || '').split('.').slice(0, 2).join('.');
+    const specPre = k => pre(NET.cidr(Object.values(SPECS[k].pcs)[0].ip).ip);
+    const mine = readNetwork(doc).devs.filter(d => d.kind === 'Pc').map(d => pre((d.ports.find(q => q.ip) || {}).ip)).filter(x => x && x !== '.');
+    let notice = '';
+    if (mine.length && !mine.includes(specPre(lesson))) {
+      const other = keys.find(k => k !== lesson && mine.includes(specPre(k)));
+      notice = other ? `このファイルは${SPECS[other].label.split(' ')[0]}のもののようです（PC のアドレスが ${specPre(other)}.x.x）。このページは${SPECS[lesson].label.split(' ')[0]}用です。ファイルを確かめてください。`
+                     : `PC のアドレスが、${SPECS[lesson].label.split(' ')[0]}の表（${SPECS[lesson].pages.table}）と違います。このページは${SPECS[lesson].label.split(' ')[0]}用です。`;
+    }
+    const r = diagnose(doc, lesson, { sid: /^\d{4}[a-z]\d{3}$/i.test(id) ? id : '', fileName: name });
+    const v = toView(r, name); v.notice = notice; render(v);
+  }
+
+  function addr(ip, len) {
+    if (!ip) return '<span class="ng">未設定</span>';
+    if (len == null || len % 8) return `<span class="mono">${esc(ip)}${len != null ? '/' + len : ''}</span>`;
+    const o = ip.split('.'), k = len / 8;
+    return `<span class="mono addr"><span class="net">${esc(o.slice(0, k).join('.'))}.</span><span class="host">${esc(o.slice(k).join('.'))}</span><span class="net">/${len}</span></span>`;
+  }
+  const short = n => n.replace('FastEthernet', 'Fa').replace('GigabitEthernet', 'Gi');
+
+  function toView(r, name, want) {
+    const spec = r.spec, rows = [];
+    for (const { n, d } of r.summary.routers) {
+      if (!d) { rows.push({ role: 'ルータ', n, host: '—', addr: '<span class="ng">見つからない</span>', gw: '', login: '' }); continue; }
+      const io = d.ios;
+      const a = Object.keys(spec.routers[n].if).map(k => { const i = io.ifaces[k]; return `${short(k)} ${i && i.ip ? addr(i.ip, NET.mask2len(i.mask)) : '<span class="ng">未設定</span>'}${i && i.shutdown ? ' <span class="ng">shutdown</span>' : ''}`; }).join('<br>');
+      const routes = io.routes.map(x => `${addr(x.dest, NET.mask2len(x.mask))} → <span class="mono">${esc(x.via)}</span>`).join('<br>');
+      const v = io.vty['0 4'] || io.vty['0 15'] || {};
+      const login = spec.routerLogin === 'ssh' ? (v.transport === 'ssh' && v.login === 'local' ? `SSH（${esc(io.users.map(u => u.name).join(', ') || 'ユーザなし')}）` : (v.login ? 'telnet' : '—')) : (v.login ? 'telnet' : '—');
+      rows.push({ role: 'ルータ', n, host: io.hostname || '—', addr: a + (routes ? `<br><span class="sub">静的ルート</span><br>${routes}` : ''), gw: '', login });
+    }
+    for (const { n, d } of r.summary.switches) {
+      if (!d) { rows.push({ role: 'スイッチ', n, host: '—', addr: '<span class="ng">見つからない</span>', gw: '', login: '' }); continue; }
+      const io = d.ios, v1 = io.ifaces.Vlan1 || {}, v = io.vty['0 4'] || io.vty['0 15'] || {};
+      rows.push({ role: 'スイッチ', n, host: io.hostname || '—', addr: 'vlan1 ' + (v1.ip ? addr(v1.ip, NET.mask2len(v1.mask)) : '<span class="ng">未設定</span>'), gw: io.dgw ? addr(io.dgw, NET.mask2len(v1.mask)) : '<span class="ng">未設定</span>', login: v.login ? 'telnet' : '—' });
+    }
+    for (const { n, d, c } of r.summary.pcs) {
+      if (!d) { rows.push({ role: 'PC', n, host: '—', addr: '<span class="ng">見つからない</span>', gw: '', login: '' }); continue; }
+      rows.push({ role: 'PC', n, host: d.name === n ? n : `${d.name}（表示名）`, addr: addr(c.ip, NET.mask2len(c.mask)), gw: c.gw ? addr(c.gw, NET.mask2len(c.mask)) : '<span class="ng">未設定</span>', login: '' });
+    }
+    const pcNames = Object.keys(spec.pcs).filter(n => r.mapP[n]);
+    const ping = {}; r.pingRows.forEach(x => { ping[pname(x.a, r.mapP) + '>' + pname(x.b, r.mapP)] = x.ok; });
+    const acc = {}; r.access.forEach(x => { acc[pname(x.a, r.mapP) + '>' + x.t] = x.ok; });
+    const targets = [...Object.keys(spec.routers).map(n => ({ n, how: spec.routerLogin })), ...Object.keys(spec.switches).map(n => ({ n, how: 'telnet' }))];
+    return { name, version: r.version, items: r.items, rows, pcNames, ping, acc, targets, spec };
+  }
+
+  function render(v, demo) {
+    const fix = v.items.filter(i => i.level === 'fix'), chk = v.items.filter(i => i.level === 'check'), info = v.items.filter(i => i.level === 'info');
+    const verdict = fix.length ? `<span class="verdict ng">直すところが ${fix.length} 件</span>` : `<span class="verdict ok">要件を満たしています</span>`;
+    const label = { fix: '要修正', check: '確認', info: '参考' };
+    const li = i => `<li class="item"><span class="badge ${i.level}">${label[i.level]}</span><p><span class="who">${esc(i.who)}</span>${esc(i.text)}</p>${i.hint ? `<p class="hint"><b>ヒント</b>${esc(i.hint)}</p>` : ''}</li>`;
+    const list = v.items.length ? `<ul class="items">${[...fix, ...chk, ...info].map(li).join('')}</ul>` : `<div class="allgood"><b>指摘はありません。</b> 実際に各 PC から ping・${v.spec.routerLogin === 'ssh' ? 'ssh・' : ''}telnet を試して、提出用のスクリーンショット（${v.spec.shot.from} → ${v.spec.shot.to}）を撮ろう。</div>`;
+    const cnt = `${chk.length ? `確認 ${chk.length} 件` : ''}${chk.length && info.length ? '・' : ''}${info.length ? `参考 ${info.length} 件` : ''}`;
+    const devTable = `<div class="tablebox"><table><thead><tr><th>機器</th><th>ホスト名</th><th>アドレス</th><th>デフォルトGW</th><th>ログイン</th></tr></thead><tbody>${v.rows.map(r => `<tr><td>${esc(r.role)} <b>${esc(r.n)}</b></td><td class="mono">${esc(r.host)}</td><td>${r.addr}</td><td>${r.gw || '－'}</td><td>${r.login || '－'}</td></tr>`).join('')}</tbody></table></div>`;
+    const mark = ok => ok === undefined ? '－' : ok ? '<span class="ok" aria-label="届く">○</span>' : '<span class="ng" aria-label="届かない">×</span>';
+    const pingT = `<div class="tablebox"><table class="mx"><thead><tr><th>送信元 ＼ 宛先</th>${v.pcNames.map(n => `<th>${n}</th>`).join('')}</tr></thead><tbody>${v.pcNames.map(a => `<tr><th scope="row">${a}</th>${v.pcNames.map(b => `<td>${a === b ? '－' : mark(v.ping[a + '>' + b])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    const accT = `<div class="tablebox"><table class="mx"><thead><tr><th>PC ＼ 機器</th>${v.targets.map(t => `<th>${t.n}<br><span class="sub">${t.how}</span></th>`).join('')}</tr></thead><tbody>${v.pcNames.map(a => `<tr><th scope="row">${a}</th>${v.targets.map(t => `<td>${mark(v.acc[a + '>' + t.n])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    $('#out').innerHTML = `
+      <div style="display:grid;gap:var(--s6)">
+        <div class="status">${demo ? '<span class="example-tag">表示例</span>' : ''}${verdict}${cnt ? `<span>${cnt}</span>` : ''}<span class="file">${esc(v.name)}${v.version ? `（Packet Tracer ${esc(v.version.split('.').slice(0, 3).join('.'))}）` : ''}</span>${demo ? '' : '<button class="btn" id="again" type="button">別のファイルを読み込む</button>'}</div>${v.notice ? `<div class="notice">${esc(v.notice)}</div>` : ''}
+        <section><h2>確かめること</h2>${list}</section>
+        <section><h2>ファイルの中身</h2><p class="sub">アドレスは、ネットワーク部を薄く、ホスト部を緑で示しています。表（${v.spec.pages.table}）と見比べよう。</p>${devTable}</section>
+        <section><h2>通信の見込み</h2><div class="grid2"><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC どうしの ping（行きと帰りの両方が届くか）</p>${pingT}</div><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC からルータ・スイッチへのログイン</p>${accT}</div></div></section>
+      </div>`;
+    const again = $('#again'); if (again) again.addEventListener('click', () => file.click());
+  }
+
+  function renderDemo() {
+    if (lesson !== '4') { $('#out').innerHTML = '<div class="notice">pkt ファイルを読み込むと、直すところとヒント、ファイルの中身、通信の見込みがここに表示されます。</div>'; return; }
+    const spec = SPECS['4'];
+    const A = (ip) => addr(ip, 24);
+    render({
+      name: '2024z999_261019.pkt', version: '9.0.1.0858', spec,
+      items: [
+        { level: 'fix', who: 'SW2', text: 'ip default-gateway（10.4.1.1）が、SW2 と同じネットワークにありません。', hint: 'デフォルトゲートウェイは「SW2 と同じネットワークにある、ルータのインタフェース」。構成図で、SW2 の側にあるルータのアドレスを確かめよう。' },
+        { level: 'fix', who: '通信', text: 'ログインできない組み合わせがあります（PC0→SW2、PC1→SW2）。', hint: '届かない相手のデフォルトゲートウェイや、ログインの設定を確かめよう。' },
+        { level: 'check', who: 'PC3（表示名 PC2）', text: '表で PC3 のアドレスの PC が、表示名 PC2 になっています。', hint: '表示名とアドレスの組み合わせを構成図と見比べよう（提出のスクリーンショットで使う PC を間違えやすい）。' },
+      ],
+      rows: [
+        { role: 'ルータ', n: 'RT1', host: 'RT1', addr: `Fa0/0 ${A('10.4.1.1')}<br>Fa0/1 ${A('10.4.3.1')}<br><span class="sub">静的ルート</span><br>${A('10.4.2.0')} → <span class="mono">10.4.3.2</span>`, gw: '', login: 'SSH（2024z999）' },
+        { role: 'ルータ', n: 'RT2', host: 'RT2', addr: `Fa0/0 ${A('10.4.3.2')}<br>Fa0/1 ${A('10.4.2.1')}<br><span class="sub">静的ルート</span><br>${A('10.4.1.0')} → <span class="mono">10.4.3.1</span>`, gw: '', login: 'SSH（2024z999）' },
+        { role: 'スイッチ', n: 'SW1', host: 'SW1', addr: 'vlan1 ' + A('10.4.1.2'), gw: A('10.4.1.1'), login: 'telnet' },
+        { role: 'スイッチ', n: 'SW2', host: 'SW2', addr: 'vlan1 ' + A('10.4.2.2'), gw: A('10.4.1.1'), login: 'telnet' },
+        { role: 'PC', n: 'PC0', host: 'PC0', addr: A('10.4.1.11'), gw: A('10.4.1.1'), login: '' },
+        { role: 'PC', n: 'PC1', host: 'PC1', addr: A('10.4.1.12'), gw: A('10.4.1.1'), login: '' },
+        { role: 'PC', n: 'PC2', host: 'PC3（表示名）', addr: A('10.4.2.11'), gw: A('10.4.2.1'), login: '' },
+        { role: 'PC', n: 'PC3', host: 'PC2（表示名）', addr: A('10.4.2.12'), gw: A('10.4.2.1'), login: '' },
+      ],
+      pcNames: ['PC0', 'PC1', 'PC2', 'PC3'],
+      ping: Object.fromEntries(['PC0', 'PC1', 'PC2', 'PC3'].flatMap(a => ['PC0', 'PC1', 'PC2', 'PC3'].map(b => [a + '>' + b, true]))),
+      acc: Object.fromEntries(['PC0', 'PC1', 'PC2', 'PC3'].flatMap(a => ['RT1', 'RT2', 'SW1', 'SW2'].map(t => [a + '>' + t, !(t === 'SW2' && (a === 'PC0' || a === 'PC1'))]))),
+      targets: [{ n: 'RT1', how: 'ssh' }, { n: 'RT2', how: 'ssh' }, { n: 'SW1', how: 'telnet' }, { n: 'SW2', how: 'telnet' }],
+    }, true);
+  }
+  renderDemo();
+})();
+</script>
+</body>
+</html>

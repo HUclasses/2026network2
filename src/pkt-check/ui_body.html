@@ -1,0 +1,33 @@
+<div class="band" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">情報通信ネットワークⅡ ／ 提出前の確認</div>
+    <h1>__H1__</h1>
+    <p class="lead">提出する前に、自分の pkt ファイルを読み込んで、設定が要件どおりかを確かめるページです。直すところが見つかったら、ヒントを手がかりに Packet Tracer で自分で直してください。
+      <small>ファイルはこのページの中だけで読み取り、どこにも送信しません。結果は確認の助けで、採点とは別です。最後は自分の画面で ping・telnet・ssh を試して確かめよう。</small></p>
+  </header>
+
+  <div class="panel" aria-label="読み込み">
+    <div class="controls">
+      <div class="field">
+        <span class="lbl">この回の要件</span>
+        <span class="note" id="lesson-note"></span>
+      </div>
+      <div class="field">
+        <label for="sid">学籍番号（任意）</label>
+        <input type="text" id="sid" placeholder="例：2024z999" autocomplete="off" spellcheck="false" inputmode="latin">
+        <span class="note" id="sid-note">入力すると、ファイル名も確かめます。</span>
+      </div>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-sub">
+        <strong>pkt ファイルをここにドロップ</strong>
+        <span id="drop-sub">またはクリックして選ぶ（Packet Tracer 9 で保存した .pkt）</span>
+        <input type="file" id="file" accept=".pkt" hidden>
+      </div>
+    </div>
+  </div>
+
+  <div id="out" class="result"></div>
+
+  <p class="foot">「通信の見込み」は、ファイルの設定から Packet Tracer の動きを簡単にまねて判断したものです。ケーブルのつなぎ間違いなど、ファイルから読み取れないこともあります。見込みが○でも、実際に ping・telnet・ssh で確かめよう。<br>
+    思った通りにいかないときこそ、腕の見せ所。表示をよく読み、近いところから順に確かめて、自分で原因にたどり着こう。</p>
+</div>
