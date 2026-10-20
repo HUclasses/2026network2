@@ -81,7 +81,7 @@
     const ping = {}; r.pingRows.forEach(x => { ping[pname(x.a, r.mapP) + '>' + pname(x.b, r.mapP)] = x.ok; });
     const acc = {}; r.access.forEach(x => { acc[pname(x.a, r.mapP) + '>' + x.t] = x.ok; });
     const targets = [...Object.keys(spec.routers).map(n => ({ n, how: spec.routerLogin })), ...Object.keys(spec.switches).map(n => ({ n, how: 'telnet' }))];
-    return { name, version: r.version, items: r.items, rows, pcNames, ping, acc, targets, spec };
+    return { name, version: r.version, items: r.items, rows, pcNames, ping, acc, targets, spec, stages: r.stages };
   }
 
   function render(v, demo) {
@@ -98,11 +98,21 @@
     $('#out').innerHTML = `
       <div style="display:grid;gap:var(--s6)">
         <div class="status">${demo ? '<span class="example-tag">表示例</span>' : ''}${verdict}${cnt ? `<span>${cnt}</span>` : ''}<span class="file">${esc(v.name)}${v.version ? `（Packet Tracer ${esc(v.version.split('.').slice(0, 3).join('.'))}）` : ''}</span>${demo ? '' : '<button class="btn" id="again" type="button">別のファイルを読み込む</button>'}</div>${v.notice ? `<div class="notice">${esc(v.notice)}</div>` : ''}
+        ${progress(v)}
         <section><h2>確かめること</h2>${list}</section>
         <section><h2>ファイルの中身</h2><p class="sub">アドレスは、ネットワーク部を薄く、ホスト部を緑で示しています。表（${v.spec.pages.table}）と見比べよう。</p>${devTable}</section>
         <section><h2>通信の見込み</h2><div class="grid2"><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC どうしの ping（行きと帰りの両方が届くか）</p>${pingT}</div><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC からルータ・スイッチへのログイン</p>${accT}</div></div></section>
       </div>`;
     const again = $('#again'); if (again) again.addEventListener('click', () => file.click());
+  }
+
+  function progress(v) {
+    if (!v.stages || !v.stages.length) return '';
+    const next = v.stages.find(s => !s.ok);
+    const cells = v.stages.map(s => `<li class="step ${s.ok ? 'done' : (s === next ? 'next' : '')}"><span class="sname">${esc(s.name)}</span><span class="sstate">${s.ok ? 'できている' : `あと ${s.missing.length} つ`}</span><span class="spage">資料 ${esc(s.page)}</span></li>`).join('');
+    const body = next ? `<div class="nextbox"><p class="nexthead"><b>次は${esc(next.name)}</b>（資料 ${esc(next.page)}）。ファイルにまだ入っていないもの：</p><ul>${next.missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>`
+      : `<div class="allgood"><b>確認①〜③と実習の内容が、すべてファイルに入っています。</b></div>`;
+    return `<section><h2>どこまでできたか</h2><p class="sub">ファイルの中身から判断しています。確認①〜③の manaba への入力は、別に必要です。</p><ol class="steps">${cells}</ol>${body}</section>`;
   }
 
   function renderDemo() {
@@ -130,6 +140,8 @@
       ping: Object.fromEntries(['PC0', 'PC1', 'PC2', 'PC3'].flatMap(a => ['PC0', 'PC1', 'PC2', 'PC3'].map(b => [a + '>' + b, true]))),
       acc: Object.fromEntries(['PC0', 'PC1', 'PC2', 'PC3'].flatMap(a => ['RT1', 'RT2', 'SW1', 'SW2'].map(t => [a + '>' + t, !(t === 'SW2' && (a === 'PC0' || a === 'PC1'))]))),
       targets: [{ n: 'RT1', how: 'ssh' }, { n: 'RT2', how: 'ssh' }, { n: 'SW1', how: 'telnet' }, { n: 'SW2', how: 'telnet' }],
+      stages: [{ name: '確認①', page: 'p.15', ok: true, missing: [] }, { name: '確認②', page: 'p.19', ok: true, missing: [] }, { name: '確認③', page: 'p.28', ok: true, missing: [] },
+               { name: '実習', page: 'p.32〜35', ok: false, missing: ['SW2 のホスト名・vlan 1・ip default-gateway', 'どの PC からもルータ・スイッチにログインできる'] }],
     }, true);
   }
   renderDemo();

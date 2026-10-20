@@ -86,6 +86,15 @@ td.mono, .mono { font-family: var(--mono); font-size: 13px; }
 @media (max-width: 760px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
 .foot { font-size: 13px; color: var(--ink-muted); border-top: 1px solid var(--line); padding-top: var(--s4); line-height: 1.7; }
 .notice { padding: 10px var(--s4); border-radius: var(--r-md); background: var(--navy-tint); color: var(--ink); font-size: 14px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); counter-reset: none; }
+@media (max-width: 560px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.step { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.step .sname { font-weight: 700; } .step .sstate { font-size: 14px; color: var(--ink-muted); } .step .spage { font-size: 12px; color: var(--ink-muted); }
+.step.done { background: var(--moss-tint); border-color: var(--moss-tint); } .step.done .sstate { color: var(--moss); font-weight: 700; }
+.step.done .sstate::before { content: "✓ "; }
+.step.next { border: 2px solid var(--navy); padding: 9px 11px; } .step.next .sstate { color: var(--navy); font-weight: 700; }
+.nextbox { padding: var(--s4); border-radius: var(--r-md); background: var(--navy-tint); }
+.nextbox p { margin: 0 0 4px; } .nextbox ul { margin: 0; padding-left: 1.4em; } .nextbox li { line-height: 1.7; }
 .err { padding: var(--s4); border-radius: var(--r-md); background: var(--vermilion-tint); color: var(--ink); }
 .err b { color: var(--vermilion); }
 @media (prefers-reduced-motion: no-preference) { .result { animation: fade .25s ease-out; } @keyframes fade { from { opacity: .4 } to { opacity: 1 } } }

@@ -9,6 +9,12 @@ const SPECS = {
            PC2: { ip: '10.3.2.11/24', gw: '10.3.2.1' }, PC3: { ip: '10.3.2.12/24', gw: '10.3.2.1' } },
     enable: 'class', routerLogin: 'telnet', vtyPassword: 'cisco',
     shot: { from: 'PC1', to: 'SW2', how: 'telnet' },
+    stages: [
+      { name: '確認①', page: 'p.9', need: [['pc', 'PC0'], ['count', 'Switch', 'SW1（2950T）を置いて PC0 とつなぐ']] },
+      { name: '確認②', page: 'p.16', need: [['rhost', 'RT0'], ['rif', 'RT0'], ['pc', 'PC2'], ['ping', 'PC0>PC2']] },
+      { name: '確認③', page: 'p.23', need: [['sw', 'SW1'], ['secret', 'SW1'], ['vty', 'SW1'], ['reach', 'PC2>SW1']] },
+      { name: '実習', page: 'p.26〜29', need: [['pc', 'PC1'], ['pc', 'PC3'], ['secret', 'RT0'], ['vty', 'RT0'], ['sw', 'SW2'], ['secret', 'SW2'], ['vty', 'SW2'], ['allping'], ['allreach'], ['nofix']] },
+    ],
   },
   '4': {
     label: '第4回 ルータ2台のネットワークとSSH', pages: { table: 'p.35', diagram: 'p.32', steps: 'p.34', ssh: 'p.26', trouble: '確認①〜③の「うまくいかないとき」' },
@@ -21,6 +27,12 @@ const SPECS = {
            PC2: { ip: '10.4.2.11/24', gw: '10.4.2.1' }, PC3: { ip: '10.4.2.12/24', gw: '10.4.2.1' } },
     enable: 'class', routerLogin: 'ssh', vtyPassword: 'cisco', sshUserPassword: 'cisco',
     shot: { from: 'PC3', to: 'RT1', how: 'ssh' },
+    stages: [
+      { name: '確認①', page: 'p.15', need: [['rhost', 'RT1'], ['rhost', 'RT2'], ['rif', 'RT1'], ['rif', 'RT2'], ['routes', 'RT1'], ['routes', 'RT2'], ['pc', 'PC0'], ['pc', 'PC2'], ['ping', 'PC0>PC2']] },
+      { name: '確認②', page: 'p.19', need: [['secret', 'RT1'], ['vtyorssh', 'RT1']] },
+      { name: '確認③', page: 'p.28', need: [['ssh', 'RT1'], ['reach', 'PC0>RT1']] },
+      { name: '実習', page: 'p.32〜35', need: [['pc', 'PC1'], ['pc', 'PC3'], ['secret', 'RT2'], ['ssh', 'RT2'], ['sw', 'SW1'], ['secret', 'SW1'], ['vty', 'SW1'], ['sw', 'SW2'], ['secret', 'SW2'], ['vty', 'SW2'], ['allping'], ['allreach'], ['nofix']] },
+    ],
   },
 };
 
@@ -246,7 +258,43 @@ function diagnose(xmlDoc, specKey, opts = {}) {
     routers: Object.keys(spec.routers).map(n => ({ n, d: mapR[n] })), switches: Object.keys(spec.switches).map(n => ({ n, d: mapS[n] })),
     pcs: Object.keys(spec.pcs).map(n => ({ n, d: mapP[n], c: mapP[n] ? pcIP(mapP[n]) : null })),
   };
-  return { version, items, pingRows, access, summary, spec, mapP };
+  // 7. どの確認まで進んだか
+  const stages = (spec.stages || []).map(st => {
+    const res = st.need.map(([t, a, lab]) => stageCheck(t, a, lab, { spec, routers, switches, mapR, mapS, mapP, pcIP, sim, items, pingRows, access, opts, vty04 }));
+    let miss = res.filter(r => !r.ok).map(r => r.label);
+    if (miss.length > 1) miss = miss.filter(l => !l.startsWith('「確かめること」'));
+    return { name: st.name, page: st.page, ok: res.every(r => r.ok), missing: miss };
+  });
+  return { version, items, pingRows, access, summary, spec, mapP, stages };
+}
+function stageCheck(t, a, lab, c) {
+  const { spec, mapR, mapS, mapP, pcIP, sim } = c;
+  const ok = (v, l) => ({ ok: !!v, label: lab || l });
+  const secretOK = d => !!(d && d.ios.secret && MD5C.check(d.ios.secret, spec.enable) !== false);
+  const vty = d => (d && c.vty04(d.ios)) || {};
+  const telnetOK = d => { const v = vty(d); return v.login === 'line' && v.password === spec.vtyPassword; };
+  const sshOK = d => { if (!d) return false; const io = d.ios, v = vty(d);
+    return !!io.domain && (d.rsaBits > 0 || d.rsaKey) && io.users.length > 0 && !io.users.some(u => u.name === '2024z999') &&
+      (!c.opts.sid || io.users.some(u => u.name.toLowerCase() === c.opts.sid.toLowerCase())) && v.login === 'local' && /^ssh$/.test(v.transport || ''); };
+  const dev = n => mapR[n] || mapS[n];
+  switch (t) {
+    case 'pc': { const d = mapP[a], e = NET.cidr(spec.pcs[a].ip), x = d ? pcIP(d) : {}; return ok(d && x.ip === e.ip && x.mask === e.mask && x.gw === spec.pcs[a].gw, `${a} のアドレス・マスク・デフォルトGW`); }
+    case 'count': return ok((a === 'Switch' ? c.switches : c.routers).length > 0, a);
+    case 'rhost': return ok(mapR[a] && mapR[a].ios.hostname === a, `${a} のホスト名`);
+    case 'rif': { const d = mapR[a]; return ok(d && Object.entries(spec.routers[a].if).every(([k, v]) => { const i = d.ios.ifaces[k], e = NET.cidr(v); return i && i.ip === e.ip && i.mask === e.mask && !i.shutdown; }), `${a} の ${Object.keys(spec.routers[a].if).map(k => k.replace('FastEthernet', 'Fa')).join('・')}（アドレスと no shutdown）`); }
+    case 'routes': { const d = mapR[a]; return ok(d && spec.routers[a].routes.every(rt => { const e = NET.cidr(rt.net); return d.ios.routes.some(x => x.dest === e.ip && x.mask === e.mask && x.via === rt.via); }), `${a} の静的ルート（ip route）`); }
+    case 'secret': return ok(secretOK(dev(a)), `${a} の特権パスワード（enable secret）`);
+    case 'vty': return ok(telnetOK(dev(a)), `${a} の telnet 用パスワード（line vty の password・login）`);
+    case 'vtyorssh': return ok(telnetOK(dev(a)) || vty(dev(a)).login === 'local', `${a} の line vty（password・login）`);
+    case 'ssh': return ok(sshOK(dev(a)), `${a} の SSH（ip domain-name・RSA 鍵・username・login local・transport input ssh）`);
+    case 'sw': { const d = mapS[a], s = spec.switches[a], e = NET.cidr(s.ip), v = d && d.ios.ifaces.Vlan1; return ok(d && d.ios.hostname === a && v && v.ip === e.ip && v.mask === e.mask && !v.shutdown && d.ios.dgw === s.gw, `${a} のホスト名・vlan 1・ip default-gateway`); }
+    case 'ping': { const [x, y] = a.split('>'); return ok(mapP[x] && mapP[y] && sim.ping(mapP[x], mapP[y]), `${x} → ${y} の ping`); }
+    case 'reach': { const [x, y] = a.split('>'); const how = mapR[y] ? spec.routerLogin : 'telnet'; return ok(mapP[x] && dev(y) && sim.reach(mapP[x], dev(y)), `${x} → ${y} の ${how === 'ssh' ? 'SSH' : 'telnet'}`); }
+    case 'allping': return ok(Object.keys(spec.pcs).every(n => mapP[n]) && c.pingRows.every(r => r.ok), 'すべての PC どうしの ping');
+    case 'allreach': return ok(Object.keys(spec.pcs).every(n => mapP[n]) && c.access.every(r => r.ok), 'どの PC からもルータ・スイッチにログインできる');
+    case 'nofix': return ok(!c.items.some(i => i.level === 'fix'), '「確かめること」の要修正をなくす');
+  }
+  return ok(false, t);
 }
 function pname(d, mapP) { const n = Object.keys(mapP).find(k => mapP[k] === d); return n || d.name; }
 
