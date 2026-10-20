@@ -7,8 +7,8 @@
   const lesson = window.PKT_LESSON;
   const sid = $('#sid'); sid.value = store.get('pktcheck.sid') || '';
   let last = null;
-  { const p = SPECS[lesson].pages; $('#lesson-note').textContent = `${SPECS[lesson].label}。資料の ${p.diagram}（構成図）と ${p.table}（アドレスの表）。`; }
-  if (SPECS[lesson].routerLogin === 'ssh') $('#sid-note').textContent = '入力すると、SSH のユーザ名とファイル名も確かめます。';
+  { const p = SPECS[lesson].pages; $('#lesson-note').innerHTML = `<span class="nw">${esc(SPECS[lesson].label)}。</span><wbr>資料の <span class="nw">${p.diagram}（構成図）</span>と<wbr> <span class="nw">${p.table}（アドレスの表）。</span>`; }
+  if (SPECS[lesson].routerLogin === 'ssh') $('#sid-note').innerHTML = '入力すると、<wbr>SSH のユーザ名と<wbr>ファイル名も<wbr>確かめます。';
   sid.addEventListener('change', () => { store.set('pktcheck.sid', sid.value.trim()); if (last) run(last); });
 
   const drop = $('#drop'), file = $('#file');

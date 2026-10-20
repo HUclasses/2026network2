@@ -25,7 +25,11 @@ header { display: grid; gap: var(--s2); }
 .eyebrow { font-size: 13px; letter-spacing: .08em; color: var(--ink-muted); }
 h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 36px); line-height: 1.35; color: var(--navy); margin: 0; text-wrap: balance; }
 h2 { font-family: var(--serif); font-size: 20px; line-height: 1.6; margin: 0; color: var(--ink); text-wrap: balance; }
-.lead { margin: 0; max-width: 40em; }
+.lead { margin: 0; max-width: 42em; }
+/* 日本語の改行：文節で折り返し、行末に1〜2文字だけ残さない */
+.lead, .lead small, .note, .item p, .sub, .foot, .notice, .err, .allgood { word-break: auto-phrase; text-wrap: pretty; line-break: strict; }
+.kp { word-break: keep-all; overflow-wrap: anywhere; }
+.nw { white-space: nowrap; }
 .lead small { display: block; color: var(--ink-muted); font-size: 13px; line-height: 1.6; margin-top: var(--s2); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s6); display: grid; gap: var(--s4); }
 .controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s4) var(--s6); }

@@ -30,7 +30,11 @@ header { display: grid; gap: var(--s2); }
 .eyebrow { font-size: 13px; letter-spacing: .08em; color: var(--ink-muted); }
 h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 36px); line-height: 1.35; color: var(--navy); margin: 0; text-wrap: balance; }
 h2 { font-family: var(--serif); font-size: 20px; line-height: 1.6; margin: 0; color: var(--ink); text-wrap: balance; }
-.lead { margin: 0; max-width: 40em; }
+.lead { margin: 0; max-width: 42em; }
+/* 日本語の改行：文節で折り返し、行末に1〜2文字だけ残さない */
+.lead, .lead small, .note, .item p, .sub, .foot, .notice, .err, .allgood { word-break: auto-phrase; text-wrap: pretty; line-break: strict; }
+.kp { word-break: keep-all; overflow-wrap: anywhere; }
+.nw { white-space: nowrap; }
 .lead small { display: block; color: var(--ink-muted); font-size: 13px; line-height: 1.6; margin-top: var(--s2); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s6); display: grid; gap: var(--s4); }
 .controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s4) var(--s6); }
@@ -99,8 +103,8 @@ td.mono, .mono { font-family: var(--mono); font-size: 13px; }
   <header>
     <div class="eyebrow">情報通信ネットワークⅡ ／ 提出前の確認</div>
     <h1>第3回 pkt セルフチェック</h1>
-    <p class="lead">提出する前に、自分の pkt ファイルを読み込んで、設定が要件どおりかを確かめるページです。直すところが見つかったら、ヒントを手がかりに Packet Tracer で自分で直してください。
-      <small>ファイルはこのページの中だけで読み取り、どこにも送信しません。結果は確認の助けで、採点とは別です。最後は自分の画面で ping・telnet・ssh を試して確かめよう。</small></p>
+    <p class="lead kp">提出する前に、<wbr>自分の pkt ファイルを<wbr>読み込んで、<wbr>設定が<wbr>要件どおりかを<wbr>確かめる<wbr>ページです。<wbr>直すところが<wbr>見つかったら、<wbr>ヒントを<wbr>手がかりに<wbr> Packet Tracer で<wbr>自分で<wbr>直してください。
+      <small class="kp">ファイルは<wbr>このページの<wbr>中だけで<wbr>読み取り、<wbr>どこにも<wbr>送信しません。<wbr>結果は<wbr>確認の<wbr>助けで、<wbr>採点とは<wbr>別です。<wbr>最後は<wbr>自分の<wbr>画面で<wbr> ping・telnet・ssh を<wbr>試して<wbr>確かめよう。</small></p>
   </header>
 
   <div class="panel" aria-label="読み込み">
@@ -112,7 +116,7 @@ td.mono, .mono { font-family: var(--mono); font-size: 13px; }
       <div class="field">
         <label for="sid">学籍番号（任意）</label>
         <input type="text" id="sid" placeholder="例：2024z999" autocomplete="off" spellcheck="false" inputmode="latin">
-        <span class="note" id="sid-note">入力すると、ファイル名も確かめます。</span>
+        <span class="note kp" id="sid-note">入力すると、<wbr>ファイル名も<wbr>確かめます。</span>
       </div>
       <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-sub">
         <strong>pkt ファイルをここにドロップ</strong>
@@ -556,8 +560,8 @@ function buildSim(devs, links, linkUp) {
   const lesson = window.PKT_LESSON;
   const sid = $('#sid'); sid.value = store.get('pktcheck.sid') || '';
   let last = null;
-  { const p = SPECS[lesson].pages; $('#lesson-note').textContent = `${SPECS[lesson].label}。資料の ${p.diagram}（構成図）と ${p.table}（アドレスの表）。`; }
-  if (SPECS[lesson].routerLogin === 'ssh') $('#sid-note').textContent = '入力すると、SSH のユーザ名とファイル名も確かめます。';
+  { const p = SPECS[lesson].pages; $('#lesson-note').innerHTML = `<span class="nw">${esc(SPECS[lesson].label)}。</span><wbr>資料の <span class="nw">${p.diagram}（構成図）</span>と<wbr> <span class="nw">${p.table}（アドレスの表）。</span>`; }
+  if (SPECS[lesson].routerLogin === 'ssh') $('#sid-note').innerHTML = '入力すると、<wbr>SSH のユーザ名と<wbr>ファイル名も<wbr>確かめます。';
   sid.addEventListener('change', () => { store.set('pktcheck.sid', sid.value.trim()); if (last) run(last); });
 
   const drop = $('#drop'), file = $('#file');
