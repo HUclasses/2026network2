@@ -245,9 +245,14 @@ function diagnose(xmlDoc, specKey, opts = {}) {
   const targets = [...Object.keys(spec.routers).map(n => ({ n, d: mapR[n], how: spec.routerLogin })), ...Object.keys(spec.switches).map(n => ({ n, d: mapS[n], how: 'telnet' }))];
   for (const a of order) for (const t of targets) access.push({ a, t: t.n, how: t.how, ok: t.d ? sim.reach(a, t.d) : false });
   const fails = pingRows.filter(r => !r.ok);
-  if (fails.length) add('fix', '通信', `PC どうしの ping が届かない組み合わせがあります（${fails.length} 組）。`, `下の「通信の見込み」で、どこから届かないかを見て、近いところから順に確かめよう（${P.trouble}）。`);
+  const chain = (a, ip) => sim.hops(a, ip);
+  if (fails.length) { const f = fails[0]; const dst = sim.ipOf(f.b)[0];
+    add('fix', '通信', `PC どうしの ping が届かない組み合わせがあります（${fails.length} 組。例：${pname(f.a, mapP)} → ${pname(f.b, mapP)}）。`, `どこで止まるかは、送信元から近い順に ping して確かめる（${P.trouble}）。止まった所の手前と、その先の機器の設定を見よう。`);
+    items[items.length - 1].trace = { from: pname(f.a, mapP), hops: chain(f.a, dst) }; }
   const afails = access.filter(r => !r.ok);
-  if (afails.length && !fails.length) add('fix', '通信', `ログインできない組み合わせがあります（${afails.map(r => `${pname(r.a, mapP)}→${r.t}`).slice(0, 6).join('、')}${afails.length > 6 ? ' など' : ''}）。`, '届かない相手のデフォルトゲートウェイや、ログインの設定を確かめよう。');
+  if (afails.length && !fails.length) { const f = afails[0], td = mapR[f.t] || mapS[f.t];
+    add('fix', '通信', `ログインできない組み合わせがあります（${afails.map(r => `${pname(r.a, mapP)}→${r.t}`).slice(0, 6).join('、')}${afails.length > 6 ? ' など' : ''}）。`, `まず ping で届くかを近い順に確かめる。ping も届かないなら道（アドレス・デフォルトゲートウェイ）の問題。行きは届いても返事が戻らないことがある（相手のデフォルトゲートウェイ）。ping は届くのにログインできないなら、相手のログインの設定を見る。`);
+    if (td) items[items.length - 1].trace = { from: pname(f.a, mapP), hops: chain(f.a, sim.ipOf(td)[0]) }; }
 
   // ファイル名・学籍番号
   if (opts.fileName && opts.sid) { const re = new RegExp('^' + opts.sid.replace(/[^0-9a-z]/gi, '') + '_\\d{6}\\.pkt$', 'i');
@@ -258,6 +263,7 @@ function diagnose(xmlDoc, specKey, opts = {}) {
     routers: Object.keys(spec.routers).map(n => ({ n, d: mapR[n] })), switches: Object.keys(spec.switches).map(n => ({ n, d: mapS[n] })),
     pcs: Object.keys(spec.pcs).map(n => ({ n, d: mapP[n], c: mapP[n] ? pcIP(mapP[n]) : null })),
   };
+  items.forEach(i => { if (!i.how) i.how = howFor(i, spec); });
   // 7. どの確認まで進んだか
   const stages = (spec.stages || []).map(st => {
     const res = st.need.map(([t, a, lab]) => stageCheck(t, a, lab, { spec, routers, switches, mapR, mapS, mapP, pcIP, sim, items, pingRows, access, opts, vty04 }));
@@ -266,6 +272,22 @@ function diagnose(xmlDoc, specKey, opts = {}) {
     return { name: st.name, page: st.page, ok: res.every(r => r.ok), missing: miss };
   });
   return { version, items, pingRows, access, summary, spec, mapP, stages };
+}
+// 確かめ方（直し方ではなく、自分の画面で確かめる方法）
+function howFor(i, spec) {
+  const w = i.who.replace(/（.*?）/g, ''), t = i.text, cli = n => `${n} の CLI（特権モード）`;
+  const pc = /^PC\d/.test(w), sw = /^SW\d/.test(w), rt = /^RT\d/.test(w);
+  if (w === '通信' || w === 'ファイル全体' || w === 'ファイル名') return null;
+  if (/ケーブル/.test(t)) return { where: 'Packet Tracer の構成図', cmd: '', look: 'リンクの両端の印。緑の▲ならつながっている、赤の▼ならつながっていない' };
+  if (/ホスト名/.test(t)) return { where: `${w} の CLI`, cmd: '', look: `プロンプトの名前（${w}> や ${w}#）。Switch> や Router> のままなら、ホスト名は設定されていない` };
+  if (pc) return { where: `${w} の Desktop → Command Prompt`, cmd: 'ipconfig', look: 'IPv4 Address・Subnet Mask・Default Gateway を表と見比べる' };
+  if (/特権パスワード|enable secret|enable password/.test(t)) return { where: cli(w), cmd: 'show running-config', look: '先頭近くの enable secret の行（「enable secret 5 $1$…」と表示されれば secret）。値そのものは、PC から telnet して enable で入れるかで試す' };
+  if (/RSA/.test(t)) return { where: cli(w), cmd: 'show ip ssh', look: '「SSH Enabled - version 2.0」と表示されるか' };
+  if (/line vty|telnet 用|login|transport|username|domain-name|ssh version/.test(t)) return { where: cli(w), cmd: 'show running-config', look: /username|domain/.test(t) ? 'username の行と ip domain-name の行' : '最後の方の line vty 0 4 の下の行。あわせて、PC から実際にログインして試す' };
+  if (/静的ルート/.test(t)) return { where: cli(w), cmd: 'show ip route', look: '先頭が S の行（宛先ネットワークと via のアドレス）' };
+  if (/default-gateway/.test(t)) return { where: cli(w), cmd: 'show running-config', look: 'ip default-gateway の行' };
+  if (rt || (sw && /vlan 1|Vlan|IP アドレス/.test(t))) return { where: cli(w), cmd: 'show ip interface brief', look: sw ? 'Vlan1 の行の IP-Address と Status・Protocol（up / up）' : 'Fa0/0・Fa0/1 の行の IP-Address と Status・Protocol（up / up）' };
+  return null;
 }
 function stageCheck(t, a, lab, c) {
   const { spec, mapR, mapS, mapP, pcIP, sim } = c;
@@ -345,6 +367,28 @@ function buildSim(devs, links, linkUp) {
     return routerForward(g.dev, dst, 0); }
   const ipOf = d => { if (d.kind === 'Router') return Object.values(d.ios.ifaces).filter(i => i.ip && !i.shutdown).map(i => i.ip); const h = hostParams(d); return h && h.ip ? [h.ip] : []; };
   const twoWay = (a, b) => { const A = ipOf(a); if (!A.length) return false; return ipOf(b).some(bip => deliver(a, bip) === b && A.some(aip => deliver(b, aip) === a)); };
-  return { ping: twoWay, reach: twoWay };
+  const owner = ip => { for (const eps of segs.values()) for (const e of eps) if (e.a && e.a.ip === ip) return e.dev; return null; };
+  const reachIP = (a, ip) => { const o = owner(ip); const A = ipOf(a); return !!o && deliver(a, ip) === o && A.some(aip => deliver(o, aip) === a); };
+  // a から宛先 ip までの「近い順」の確認ポイント（自分のGW → ルータの向こう側 → … → 宛先）
+  function hops(a, dstIP) {
+    const h = hostParams(a); const out = []; if (!h || !h.ip || !dstIP) return out;
+    if (NET.same(dstIP, h.ip, h.len)) return [dstIP];
+    if (!h.gw) return [dstIP];
+    out.push(h.gw); let r = owner(h.gw), guard = 0;
+    while (r && r.kind === 'Router' && guard++ < 6) {
+      const ifs = Object.values(r.ios.ifaces).filter(i => i.ip && !i.shutdown);
+      const conn = ifs.find(i => NET.same(dstIP, i.ip, NET.mask2len(i.mask)));
+      if (conn) { if (conn.ip !== dstIP && !out.includes(conn.ip)) out.push(conn.ip); break; }
+      let best = null; for (const rt of r.ios.routes) { const len = NET.mask2len(rt.mask); if (len != null && NET.same(dstIP, rt.dest, len) && (!best || len > best.len)) best = { len, via: rt.via }; }
+      if (!best) break;
+      const outIf = ifs.find(i => NET.same(best.via, i.ip, NET.mask2len(i.mask)));
+      if (outIf && !out.includes(outIf.ip)) out.push(outIf.ip);
+      if (!out.includes(best.via)) out.push(best.via);
+      r = owner(best.via);
+    }
+    if (!out.includes(dstIP)) out.push(dstIP);
+    return out.map(ip => ({ ip, ok: reachIP(a, ip), who: (owner(ip) || {}).ios?.hostname || (owner(ip) || {}).name || '' }));
+  }
+  return { ping: twoWay, reach: twoWay, hops, ipOf };
 }
 if (typeof module !== 'undefined') module.exports = { SPECS, diagnose, readNetwork, parseIOS };

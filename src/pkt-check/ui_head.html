@@ -27,7 +27,7 @@ h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 36px); line-height: 
 h2 { font-family: var(--serif); font-size: 20px; line-height: 1.6; margin: 0; color: var(--ink); text-wrap: balance; }
 .lead { margin: 0; max-width: 42em; }
 /* 日本語の改行：文節で折り返し、行末に1〜2文字だけ残さない */
-.lead, .lead small, .note, .item p, .sub, .foot, .notice, .err, .allgood { word-break: auto-phrase; text-wrap: pretty; line-break: strict; }
+.lead, .lead small, .note, .item p, .trace p, .sub, .foot, .notice, .err, .allgood { word-break: auto-phrase; text-wrap: pretty; line-break: strict; }
 .kp { word-break: keep-all; overflow-wrap: anywhere; }
 .nw { white-space: nowrap; }
 .lead small { display: block; color: var(--ink-muted); font-size: 13px; line-height: 1.6; margin-top: var(--s2); }
@@ -68,6 +68,15 @@ input[type=text]:focus-visible { outline: 2px solid var(--navy); outline-offset:
 .item .hint { grid-column: 2; font-size: 14px; color: var(--ink); line-height: 1.7; }
 .item .hint b { color: var(--moss); font-size: 12px; letter-spacing: .06em; margin-right: .5em; }
 @media (max-width: 480px) { .item { grid-template-columns: minmax(0, 1fr); } .item .hint { grid-column: 1; } }
+.item .how { grid-column: 2; font-size: 14px; line-height: 1.7; }
+.item .how b { color: var(--navy); font-size: 12px; letter-spacing: .06em; margin-right: .5em; }
+code { font-family: var(--mono); font-size: 13px; background: var(--surface-sunk); border-radius: var(--r-sm); padding: 1px 6px; }
+.trace { grid-column: 2; font-size: 14px; background: var(--surface-sunk); border-radius: var(--r-sm); padding: 10px 12px; display: grid; gap: 6px; min-width: 0; }
+.trace b { font-size: 12px; letter-spacing: .06em; color: var(--navy); }
+.trace ol { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
+.trace li span { margin-left: .8em; } .trace li.ok span { color: var(--moss); font-weight: 700; } .trace li.ng span { color: var(--vermilion); font-weight: 700; }
+.trace p { margin: 0; }
+@media (max-width: 480px) { .item .how, .trace { grid-column: 1; } }
 .allgood { padding: var(--s4); border-radius: var(--r-md); background: var(--moss-tint); color: var(--ink); }
 .allgood b { color: var(--moss); }
 section { display: grid; gap: var(--s4); min-width: 0; }

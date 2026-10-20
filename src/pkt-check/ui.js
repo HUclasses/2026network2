@@ -88,7 +88,9 @@
     const fix = v.items.filter(i => i.level === 'fix'), chk = v.items.filter(i => i.level === 'check'), info = v.items.filter(i => i.level === 'info');
     const verdict = fix.length ? `<span class="verdict ng">直すところが ${fix.length} 件</span>` : `<span class="verdict ok">要件を満たしています</span>`;
     const label = { fix: '要修正', check: '確認', info: '参考' };
-    const li = i => `<li class="item"><span class="badge ${i.level}">${label[i.level]}</span><p><span class="who">${esc(i.who)}</span>${esc(i.text)}</p>${i.hint ? `<p class="hint"><b>ヒント</b>${esc(i.hint)}</p>` : ''}</li>`;
+    const how = h => h ? `<p class="how"><b>確かめ方</b>${esc(h.where)}${h.cmd ? ` で <code>${esc(h.cmd)}</code>` : ''}。${esc(h.look)}</p>` : '';
+    const trace = tr => tr && tr.hops.length ? `<div class="trace"><b>${esc(tr.from)} の Command Prompt で、近い順に ping してみると（見込み）</b><ol>${tr.hops.map((x, k) => `<li class="${x.ok ? 'ok' : 'ng'}"><code>C:\\&gt; ping ${esc(x.ip)}</code><span>${x.who ? esc(x.who) + ' ' : ''}${x.ok ? '○ 届く' : '× 届かない'}</span></li>`).join('')}</ol>${tr.hops.some(x => !x.ok) ? `<p>最初に × になった所の手前までは届いている。そこから先の機器と、返事の帰り道（相手のデフォルトゲートウェイ）を確かめよう。</p>` : ''}</div>` : '';
+    const li = i => `<li class="item"><span class="badge ${i.level}">${label[i.level]}</span><p><span class="who">${esc(i.who)}</span>${esc(i.text)}</p>${i.hint ? `<p class="hint"><b>ヒント</b>${esc(i.hint)}</p>` : ''}${how(i.how)}${trace(i.trace)}</li>`;
     const list = v.items.length ? `<ul class="items">${[...fix, ...chk, ...info].map(li).join('')}</ul>` : `<div class="allgood"><b>指摘はありません。</b> 実際に各 PC から ping・${v.spec.routerLogin === 'ssh' ? 'ssh・' : ''}telnet を試して、提出用のスクリーンショット（${v.spec.shot.from} → ${v.spec.shot.to}）を撮ろう。</div>`;
     const cnt = `${chk.length ? `確認 ${chk.length} 件` : ''}${chk.length && info.length ? '・' : ''}${info.length ? `参考 ${info.length} 件` : ''}`;
     const devTable = `<div class="tablebox"><table><thead><tr><th>機器</th><th>ホスト名</th><th>アドレス</th><th>デフォルトGW</th><th>ログイン</th></tr></thead><tbody>${v.rows.map(r => `<tr><td>${esc(r.role)} <b>${esc(r.n)}</b></td><td class="mono">${esc(r.host)}</td><td>${r.addr}</td><td>${r.gw || '－'}</td><td>${r.login || '－'}</td></tr>`).join('')}</tbody></table></div>`;
@@ -122,7 +124,7 @@
     render({
       name: '2024z999_261019.pkt', version: '9.0.1.0858', spec,
       items: [
-        { level: 'fix', who: 'SW2', text: 'ip default-gateway（10.4.1.1）が、SW2 と同じネットワークにありません。', hint: 'デフォルトゲートウェイは「SW2 と同じネットワークにある、ルータのインタフェース」。構成図で、SW2 の側にあるルータのアドレスを確かめよう。' },
+        { level: 'fix', who: 'SW2', text: 'ip default-gateway（10.4.1.1）が、SW2 と同じネットワークにありません。', hint: 'デフォルトゲートウェイは「SW2 と同じネットワークにある、ルータのインタフェース」。構成図で、SW2 の側にあるルータのアドレスを確かめよう。', how: { where: 'SW2 の CLI（特権モード）', cmd: 'show running-config', look: 'ip default-gateway の行' } },
         { level: 'fix', who: '通信', text: 'ログインできない組み合わせがあります（PC0→SW2、PC1→SW2）。', hint: '届かない相手のデフォルトゲートウェイや、ログインの設定を確かめよう。' },
         { level: 'check', who: 'PC3（表示名 PC2）', text: '表で PC3 のアドレスの PC が、表示名 PC2 になっています。', hint: '表示名とアドレスの組み合わせを構成図と見比べよう（提出のスクリーンショットで使う PC を間違えやすい）。' },
       ],
