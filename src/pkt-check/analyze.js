@@ -74,7 +74,7 @@ function readNetwork(doc) {
     const c = kid(l, 'CABLE'); if (!c) continue;
     const ps = kids(c, 'PORT').map(p => p.textContent.trim());
     const a = byRef[txt(c, 'FROM').replace('save-ref-id:', '')], b = byRef[txt(c, 'TO').replace('save-ref-id:', '')];
-    if (a && b) links.push({ a, ap: ps[0], b, bp: ps[1], type: txt(c, 'TYPE') });
+    if (a && b) links.push({ a, ap: ps[0], b, bp: ps[1], type: txt(c, 'TYPE'), functional: txt(c, 'FUNCTIONAL') !== 'false' });
   }
   return { version: txt(root, 'VERSION'), devs, links };
 }
@@ -138,8 +138,12 @@ function diagnose(xmlDoc, specKey, opts = {}) {
   for (const l of links) {
     if (!['Router', 'Switch', 'Pc'].includes(l.a.kind) || !['Router', 'Switch', 'Pc'].includes(l.b.kind)) continue;
     const need = role(l.a) === role(l.b) ? 'eCrossOver' : 'eStraightThrough';
-    if (l.type !== need) add('fix', `${l.a.name}–${l.b.name}`, `ケーブルの種類が違います（${need === 'eCrossOver' ? 'クロス' : 'ストレート'}でつなぐ所）。`, 'Packet Tracer の構成図で、リンクの両端が赤い▼になっていないか見てみよう。ルータどうしはクロス、それ以外はストレート。');
-    else linkUp.add(l);
+    const kindJ = need === 'eCrossOver' ? 'クロス' : 'ストレート';
+    if (!l.functional) add('fix', `${l.a.name}–${l.b.name}`, `このケーブルはつながっていない状態です（資料では${kindJ}でつなぐ所）。`, 'Packet Tracer の構成図で、リンクの両端が赤い▼になっていないか見てみよう。ルータどうしはクロス、それ以外はストレート。');
+    else {
+      if (l.type !== need) add('check', `${l.a.name}–${l.b.name}`, `ケーブルの種類が資料と違います（資料では${kindJ}）。Packet Tracer ではこのままでも通信できますが、実機では通信できないことがあります。`, 'ルータどうし・スイッチどうしはクロス、それ以外はストレートが基本です。つなぎ直しておこう。');
+      linkUp.add(l);
+    }
   }
 
   // 機器を要件の名前に対応づける（ホスト名 → 表示名 → アドレス）
