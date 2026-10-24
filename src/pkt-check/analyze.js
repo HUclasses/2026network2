@@ -34,7 +34,26 @@ const SPECS = {
       { name: '実習', page: 'p.32〜35', need: [['pc', 'PC1'], ['pc', 'PC3'], ['secret', 'RT2'], ['ssh', 'RT2'], ['sw', 'SW1'], ['secret', 'SW1'], ['vty', 'SW1'], ['sw', 'SW2'], ['secret', 'SW2'], ['vty', 'SW2'], ['allping'], ['allreach'], ['nofix']] },
     ],
   },
+  '5': {
+    label: '第5回 VLAN', pages: { table: 'p.12', diagram: 'p.12', steps: 'p.16', vlan: 'p.23・p.24', check: 'p.25', trouble: '確認①〜③の「うまくいかないとき」' },
+    date: '261026', routerModel: '2811', switchModel: '2950T', pcModel: 'PC-PT',
+    routers: {},
+    // スイッチの管理用アドレス（vlan 1）はこの回は設定しない
+    switches: { SW1: { vlans: { '10': { name: 'STUDENT', from: 1, to: 8 }, '20': { name: 'OFFICE', from: 9, to: 16 }, '30': { name: 'GUEST', from: 17, to: 24 } } } },
+    pcs: { PC0: { ip: '10.5.1.11/24', gw: '', port: 'FastEthernet0/1', vlan: '10' }, PC1: { ip: '10.5.1.12/24', gw: '', port: 'FastEthernet0/2', vlan: '10' },
+           PC2: { ip: '10.5.1.13/24', gw: '', port: 'FastEthernet0/9', vlan: '20' }, PC3: { ip: '10.5.1.14/24', gw: '', port: 'FastEthernet0/10', vlan: '20' },
+           PC4: { ip: '10.5.1.15/24', gw: '', port: 'FastEthernet0/17', vlan: '30' }, PC5: { ip: '10.5.1.16/24', gw: '', port: 'FastEthernet0/18', vlan: '30' } },
+    enable: 'class', routerLogin: 'telnet', vtyPassword: 'cisco',
+    shot: { text: 'PC4 → PC5 は通り、PC4 → PC0 は通らない画面' },
+    stages: [
+      { name: '確認①', page: 'p.16', need: [['pc', 'PC0'], ['pc', 'PC1'], ['pc', 'PC2'], ['pc', 'PC3'], ['port', 'PC0'], ['port', 'PC1'], ['port', 'PC2'], ['port', 'PC3'], ['swhost', 'SW1'], ['secret', 'SW1'], ['vty', 'SW1'], ['pingpre', 'PC0>PC2']] },
+      { name: '確認②', page: 'p.26', need: [['vlan', 'SW1:10'], ['vlan', 'SW1:20'], ['pvlan', 'PC0'], ['pvlan', 'PC1'], ['pvlan', 'PC2'], ['pvlan', 'PC3']] },
+      { name: '確認③', page: 'p.32', need: [['ping', 'PC0>PC1'], ['noping', 'PC0>PC2']] },
+      { name: '実習', page: 'p.37・p.38', need: [['pc', 'PC4'], ['pc', 'PC5'], ['port', 'PC4'], ['port', 'PC5'], ['vlan', 'SW1:30'], ['pvlan', 'PC4'], ['pvlan', 'PC5'], ['ping', 'PC4>PC5'], ['noping', 'PC4>PC0'], ['expect'], ['nofix']] },
+    ],
+  },
 };
+const DEFAULT_VLANS = ['1', '1002', '1003', '1004', '1005'];
 
 const NET = (() => {
   const ip2n = s => { const p = String(s || '').split('.').map(Number); if (p.length !== 4 || p.some(x => !(x >= 0 && x <= 255))) return null; return ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0; };
@@ -63,6 +82,8 @@ function readNetwork(doc) {
     if (rc) dev.cfg = kids(rc, 'LINE').map(l => l.textContent || '');
     const sec = kid(e, 'SECURITY');
     if (sec) dev.rsaBits = Number(txt(sec, 'MODULUS_BITS') || 0), dev.rsaKey = !!txt(sec, 'RSA_KEY');
+    const vl = kid(e, 'VLANS');
+    if (vl) { dev.vlans = {}; for (const v of kids(vl, 'VLAN')) dev.vlans[v.getAttribute('number')] = v.getAttribute('name') || ''; }
     for (const p of Array.from(e.getElementsByTagName('PORT'))) {
       const mac = txt(p, 'MACADDRESS'); if (!mac) continue;
       dev.ports.push({ mac, ip: txt(p, 'IP'), mask: txt(p, 'SUBNET'), gw: txt(p, 'PORT_GATEWAY'), dhcp: txt(p, 'PORT_DHCP_ENABLE') === 'true' });
@@ -93,13 +114,14 @@ function parseIOS(lines) {
       else if ((m = /^ip domain-name (\S+)/.exec(s))) r.domain = m[1];
       else if ((m = /^ip ssh version (\d)/.exec(s))) r.sshVer = m[1];
       else if ((m = /^username (\S+)(?: privilege \d+)? (secret|password) (?:\d+ )?(\S+)/.exec(s))) r.users.push({ name: m[1], kind: m[2], value: m[3] });
-      else if ((m = /^interface (\S+)/.exec(s))) { cur = { t: 'if', n: m[1] }; r.ifaces[m[1]] = { ip: null, mask: null, shutdown: false, vlan: null }; }
+      else if ((m = /^interface (\S+)/.exec(s))) { cur = { t: 'if', n: m[1] }; r.ifaces[m[1]] = { ip: null, mask: null, shutdown: false, vlan: null, mode: null }; }
       else if ((m = /^line vty (\d+)(?: (\d+))?/.exec(s))) { cur = { t: 'vty', n: m[1] + ' ' + (m[2] || m[1]) }; r.vty[cur.n] = { password: null, login: null, transport: null }; }
     } else if (cur) { const t = s.trim(); let m;
       if (cur.t === 'if') { const i = r.ifaces[cur.n];
         if ((m = /^ip address (\S+) (\S+)/.exec(t))) { i.ip = m[1]; i.mask = m[2]; }
         else if (t === 'shutdown') i.shutdown = true;
         else if ((m = /^switchport access vlan (\d+)/.exec(t))) i.vlan = m[1];
+        else if ((m = /^switchport mode (\S+)/.exec(t))) i.mode = m[1];
       } else if (cur.t === 'vty') { const v = r.vty[cur.n];
         if ((m = /^password (?:\d+ )?(\S+)/.exec(t))) v.password = m[1];
         else if (/^login local/.test(t)) v.login = 'local';
@@ -115,6 +137,7 @@ function parseIOS(lines) {
 function diagnose(xmlDoc, specKey, opts = {}) {
   const spec = SPECS[specKey], P = spec.pages;
   const { devs, links, version } = readNetwork(xmlDoc);
+  const hasVlan = Object.values(spec.pcs).some(p => p.vlan);
   const items = []; // {level:'fix'|'check'|'info', who, text, hint}
   const add = (level, who, text, hint) => items.push({ level, who, text, hint: hint || '' });
   const routers = devs.filter(d => d.kind === 'Router'), switches = devs.filter(d => d.kind === 'Switch'), pcs = devs.filter(d => d.kind === 'Pc');
@@ -129,7 +152,9 @@ function diagnose(xmlDoc, specKey, opts = {}) {
   if (switches.length !== nS) add('fix', 'ファイル全体', `スイッチが ${switches.length} 台あります（この回は ${nS} 台）。`, `構成図（${P.diagram}）と見比べよう。`);
   if (pcs.length !== nP) add('fix', 'ファイル全体', `PC が ${pcs.length} 台あります（この回は ${nP} 台）。`, `構成図（${P.diagram}）と見比べよう。`);
   badR.forEach(d => add('check', label(d), `ルータの機種が ${d.model} です（指定は ${spec.routerModel}）。`, '機種が違うと、コマンドやポート名が資料と変わることがある。'));
-  badS.forEach(d => add('check', label(d), `スイッチの機種が ${d.model} です（指定は ${spec.switchModel}）。`, '指定どおりの機種で作ろう。'));
+  badS.forEach(d => /^2950(T)?-24$/.test(d.model)
+    ? add('info', label(d), `スイッチの機種が ${d.model} です（資料は ${spec.switchModel}-24）。`, 'この授業では、2950-24 と 2950T-24 のどちらでも同じように使える（違いはギガビットのポート Gi0/1・Gi0/2 があるかどうかだけ）。作り直さなくてよい。')
+    : add('check', label(d), `スイッチの機種が ${d.model} です（指定は ${spec.switchModel}-24）。`, '機種が違うと、コマンドやポート名が資料と変わることがある。指定どおりの機種で作ろう。'));
   devs.filter(d => ['Router', 'Switch', 'Pc'].includes(d.kind) && !linked.has(d)).forEach(d => add('check', d.name, 'どこにもケーブルがつながっていません。', '使わない機器なら削除しよう。'));
 
   // 2. ケーブル
@@ -150,7 +175,12 @@ function diagnose(xmlDoc, specKey, opts = {}) {
   const pick = (list, name, ipOf) => list.find(d => d.ios && d.ios.hostname === name) || list.find(d => d.name === name) || (ipOf ? list.find(ipOf) : null);
   const mapR = {}, mapS = {}, mapP = {};
   for (const [n, r] of Object.entries(spec.routers)) mapR[n] = pick(routers, n, d => Object.entries(r.if).every(([k, v]) => d.ios.ifaces[k] && d.ios.ifaces[k].ip === NET.cidr(v).ip));
-  for (const [n, s] of Object.entries(spec.switches)) mapS[n] = pick(switches, n, d => d.ios.ifaces.Vlan1 && d.ios.ifaces.Vlan1.ip === NET.cidr(s.ip).ip);
+  for (const [n, s] of Object.entries(spec.switches)) mapS[n] = pick(switches, n, s.ip ? (d => d.ios.ifaces.Vlan1 && d.ios.ifaces.Vlan1.ip === NET.cidr(s.ip).ip) : null)
+    || (switches.length === 1 && Object.keys(spec.switches).length === 1 ? switches[0] : null);
+  // PC がつながっているスイッチのポート
+  const swPortOf = d => { const l = links.find(l => (l.a === d && l.b.kind === 'Switch') || (l.b === d && l.a.kind === 'Switch')); if (!l) return null;
+    return l.a === d ? { sw: l.b, port: l.bp } : { sw: l.a, port: l.ap }; };
+  const portVlan = (sw, port) => { const i = sw.ios && sw.ios.ifaces[port]; return (i && i.vlan) || '1'; };
   const pcIP = d => { const p = d.ports.find(q => q.ip) || d.ports[0] || {}; return { ip: p.ip || '', mask: p.mask || '', gw: p.gw || d.gateway || '', dhcp: !!p.dhcp }; };
   for (const [n, p] of Object.entries(spec.pcs)) mapP[n] = pcs.find(d => pcIP(d).ip === NET.cidr(p.ip).ip) || pcs.find(d => d.name === n) || null;
 
@@ -165,6 +195,38 @@ function diagnose(xmlDoc, specKey, opts = {}) {
     if (!v || !v.login) add('fix', who, 'line vty 0 4 に login が設定されていません。', 'telnet でログインできない（「Password required, but none set」や切断になる）。line vty 0 4 で password と login を設定しよう。');
     else if (v.login === 'line' && v.password !== spec.vtyPassword) add('fix', who, v.password ? `telnet 用のパスワード（line vty）が ${spec.vtyPassword} ではありません（${v.password} になっています）。` : 'telnet 用のパスワード（line vty の password）が設定されていません。', `特権パスワード（enable secret）と取り違えていないか確かめよう。設定値は ${P.diagram} の表。`);
     if (v && v.transport && !/telnet|all/.test(v.transport)) add('fix', who, `line vty が transport input ${v.transport} になっていて、telnet を受け付けません。`, 'スイッチは telnet でログインする設定にしよう。'); };
+
+  // VLAN（番号・名前・ポート）
+  const fa = k => `FastEthernet0/${k}`;
+  const ranges = ks => { const out = []; let st = null, pv = null; for (const k of ks) { if (st === null) st = pv = k; else if (k === pv + 1) pv = k; else { out.push(st === pv ? `Fa0/${st}` : `Fa0/${st}〜${pv}`); st = pv = k; } } if (st !== null) out.push(st === pv ? `Fa0/${st}` : `Fa0/${st}〜${pv}`); return out.join('、'); };
+  const pcOnPort = port => Object.entries(spec.pcs).find(([, p]) => p.port === port);
+  function checkVlans(d, s, who) {
+    const have = d.vlans || {}, io = d.ios;
+    for (const [num, v] of Object.entries(s.vlans)) {
+      const name = have[num];
+      if (name === undefined) add('fix', who, `VLAN ${num} がありません。`, `vlan ${num} で作り、name で名前（${v.name}）を付けて、Fa0/${v.from}〜${v.to} を入れよう（${P.vlan}）。`);
+      else if (name !== v.name) {
+        if (name.toUpperCase() === v.name) add('check', who, `VLAN ${num} の名前が ${name} になっています（資料では ${v.name}）。`, '名前は大文字・小文字を区別する。資料と同じにそろえよう。');
+        else if (/^VLAN\d{4}$/.test(name)) add('fix', who, `VLAN ${num} に名前が付いていません（${name} のまま）。`, `vlan ${num} の中で name ${v.name} を打とう（${P.vlan}）。ポートを入れたときに自動で作られた VLAN は、名前が ${name} になる。`);
+        else add('fix', who, `VLAN ${num} の名前が ${name} になっています（正しくは ${v.name}）。`, `vlan ${num} の中で name を打ち直そう（${P.vlan}）。`);
+      }
+    }
+    Object.keys(have).filter(k => !DEFAULT_VLANS.includes(k) && !s.vlans[k]).forEach(k => add('check', who, `要件にない VLAN ${k}（${have[k]}）があります。`, `試しに作ったものなら、no vlan ${k} で消しておこう。`));
+    // ポートごとの VLAN
+    const noMode = [];
+    for (const [num, v] of Object.entries(s.vlans)) {
+      const wrong = [];
+      if (have[num] === undefined && ![...Array(v.to - v.from + 1)].some((_, j) => (io.ifaces[fa(v.from + j)] || {}).vlan === num)) continue; // VLAN もポートもまだ（上の「VLAN がありません」だけ出す）
+      for (let k = v.from; k <= v.to; k++) {
+        const i = io.ifaces[fa(k)] || {}, got = i.vlan || '1', pc = pcOnPort(fa(k));
+        if (got !== num) { if (pc) add('fix', who, `${pc[0]} をつなぐ Fa0/${k} が VLAN ${got} に入っています（正しくは VLAN ${num}）。`, `interface range で、Fa0/${v.from}〜${v.to} を VLAN ${num} に入れよう（${P.vlan}）。`); else wrong.push(k); }
+        if (i.mode === 'trunk') add('fix', who, `Fa0/${k} がトランクポート（switchport mode trunk）になっています。`, 'PC をつなぐポートはアクセスポートにする（switchport mode access）。トランクは第6回で扱う。');
+        else if (i.mode !== 'access' && got === num) noMode.push(k);
+      }
+      if (wrong.length) add('check', who, `${ranges(wrong)} が VLAN ${num} に入っていません。`, `今は PC をつないでいないポートだが、資料では Fa0/${v.from}〜${v.to} をまとめて VLAN ${num} に入れる（interface range、${P.vlan}）。`);
+    }
+    if (noMode.length) add('info', who, `${ranges(noMode)} に switchport mode access がありません。`, `VLAN に入れるときは、アクセスポートにすることも明示しよう（${P.vlan}）。自動でトランクにならないようにするため（理由は第6回）。`);
+  }
 
   // 3. ルータ
   for (const [n, r] of Object.entries(spec.routers)) {
@@ -202,8 +264,11 @@ function diagnose(xmlDoc, specKey, opts = {}) {
   // 4. スイッチ
   for (const [n, s] of Object.entries(spec.switches)) {
     const d = mapS[n]; if (!d) { add('fix', n, `${n} が見つかりません。`, `ホスト名を ${n} にしたか、${P.diagram} の構成図と見比べよう。`); continue; }
-    const io = d.ios, who = n, e = NET.cidr(s.ip), v1 = io.ifaces.Vlan1;
+    const io = d.ios, who = n, v1 = io.ifaces.Vlan1;
     if (io.hostname !== n) add('fix', who, io.hostname && io.hostname !== 'Switch' ? `ホスト名が ${io.hostname} になっています（正しくは ${n}）。` : 'ホスト名が設定されていません（Switch のまま）。', '表示名（Display Name）を変えても、ホスト名は変わらない。CLI で hostname を設定し、プロンプトに名前が出るか確かめよう。');
+    if (s.vlans) checkVlans(d, s, who);
+    if (!s.ip) { checkEnable(d, who); checkTelnetVty(d, who); continue; }
+    const e = NET.cidr(s.ip);
     if (!v1 || !v1.ip) add('fix', who, 'interface vlan 1 に IP アドレスが設定されていません。', `スイッチを管理するためのアドレス。設定値は ${P.table} の表。`);
     else { if (v1.ip !== e.ip || v1.mask !== e.mask) add('fix', who, `vlan 1 のアドレスが ${v1.ip} ${v1.mask} になっていて、表と違います。`, `${P.table} の表と見比べよう。`);
       if (v1.shutdown) add('fix', who, 'interface vlan 1 が shutdown のままです。', 'no shutdown で有効にしよう。'); }
@@ -231,7 +296,10 @@ function diagnose(xmlDoc, specKey, opts = {}) {
     if (c.ip !== e.ip) add('fix', who, `IP アドレスが ${c.ip} になっていて、表と違います。`, `${P.table} の表と見比べよう。`);
     if (c.dhcp) add('fix', who, 'DHCP になっています。', 'この回は Static で設定する。');
     if (c.mask !== e.mask) add('fix', who, `サブネットマスクが ${c.mask || '未設定'} になっています。`, `${P.table} の表と見比べよう。`);
-    if (!c.gw || c.gw === '0.0.0.0') add('fix', who, 'デフォルトゲートウェイが設定されていません。', '別のネットワークへ送れない。');
+    if (p.port) { const sp = swPortOf(d);
+      if (sp && sp.port !== p.port) add('fix', who, `${sp.port.replace('FastEthernet', 'Fa')} につながっています（表では ${p.port.replace('FastEthernet', 'Fa')}）。`, `ポートで VLAN が決まるので、ケーブルをつなぎ直そう。つなぐときにポートを自動に任せず、一覧から ${p.port.replace('FastEthernet', 'Fa')} を選ぶ（${P.steps}）。`); }
+    if (p.gw === '') { if (c.gw && c.gw !== '0.0.0.0') add('info', who, `デフォルトゲートウェイに ${c.gw} が入っています。`, `この回はルータがないので空欄でよい（${P.table}）。入っていても ping の結果は変わらない。`); }
+    else if (!c.gw || c.gw === '0.0.0.0') add('fix', who, 'デフォルトゲートウェイが設定されていません。', '別のネットワークへ送れない。');
     else if (c.gw === c.ip) add('fix', who, 'デフォルトゲートウェイに自分自身のアドレスを入れています。', `同じネットワークにある、ルータのインタフェースのアドレスにしよう（${P.table}）。`);
     else if (!NET.same(c.gw, c.ip, NET.mask2len(c.mask))) add('fix', who, `デフォルトゲートウェイ（${c.gw}）が、PC と同じネットワークにありません。`, '同じネットワークにある、ルータのインタフェースのアドレスにしよう。');
     else if (c.gw !== p.gw) add('fix', who, `デフォルトゲートウェイが ${c.gw} になっていて、表と違います。`, `${P.table} の表と見比べよう。`);
@@ -243,16 +311,22 @@ function diagnose(xmlDoc, specKey, opts = {}) {
   // 6. 通信の見込み
   const sim = buildSim(devs, links, linkUp);
   const order = Object.keys(spec.pcs).map(n => mapP[n]).filter(Boolean);
+  // ping の想定：VLAN を指定した回は「同じ VLAN どうしだけ届く」、それ以外は全部届く
+  const expect = (a, b) => { const x = spec.pcs[pname(a, mapP)], y = spec.pcs[pname(b, mapP)]; return !(x && y && x.vlan && y.vlan && x.vlan !== y.vlan); };
   const pingRows = [];
-  for (const a of order) for (const b of order) if (a !== b) pingRows.push({ a, b, ok: sim.ping(a, b) });
+  for (const a of order) for (const b of order) if (a !== b) pingRows.push({ a, b, ok: sim.ping(a, b), exp: expect(a, b) });
   const access = [];
-  const targets = [...Object.keys(spec.routers).map(n => ({ n, d: mapR[n], how: spec.routerLogin })), ...Object.keys(spec.switches).map(n => ({ n, d: mapS[n], how: 'telnet' }))];
+  const targets = [...Object.keys(spec.routers).map(n => ({ n, d: mapR[n], how: spec.routerLogin })), ...Object.keys(spec.switches).filter(n => spec.switches[n].ip).map(n => ({ n, d: mapS[n], how: 'telnet' }))];
   for (const a of order) for (const t of targets) access.push({ a, t: t.n, how: t.how, ok: t.d ? sim.reach(a, t.d) : false });
-  const fails = pingRows.filter(r => !r.ok);
+  const fails = pingRows.filter(r => !r.ok && r.exp), leaks = pingRows.filter(r => r.ok && !r.exp);
   const chain = (a, ip) => sim.hops(a, ip);
+  const pairs = rs => rs.filter(r => pname(r.a, mapP) < pname(r.b, mapP)).map(r => `${pname(r.a, mapP)}–${pname(r.b, mapP)}`);
   if (fails.length) { const f = fails[0]; const dst = sim.ipOf(f.b)[0];
-    add('fix', '通信', `PC どうしの ping が届かない組み合わせがあります（${fails.length} 組。例：${pname(f.a, mapP)} → ${pname(f.b, mapP)}）。`, `どこで止まるかは、送信元から近い順に ping して確かめる（${P.trouble}）。止まった所の手前と、その先の機器の設定を見よう。`);
-    items[items.length - 1].trace = { from: pname(f.a, mapP), hops: chain(f.a, dst) }; }
+    if (hasVlan) add('fix', '通信', `同じ VLAN どうしなのに ping が届かない組み合わせがあります（${pairs(fails).slice(0, 6).join('、')}）。`, `両方の PC のポートが同じ VLAN に入っているか（${P.check} の show vlan brief）、PC のアドレスとマスクが表どおりかを確かめよう。`);
+    else { add('fix', '通信', `PC どうしの ping が届かない組み合わせがあります（${fails.length} 組。例：${pname(f.a, mapP)} → ${pname(f.b, mapP)}）。`, `どこで止まるかは、送信元から近い順に ping して確かめる（${P.trouble}）。止まった所の手前と、その先の機器の設定を見よう。`);
+      items[items.length - 1].trace = { from: pname(f.a, mapP), hops: chain(f.a, dst) }; } }
+  const anyVlan = Object.values(spec.switches).some(sw => sw.vlans && Object.keys(sw.vlans).some(num => { const d = mapS[Object.keys(spec.switches).find(k => spec.switches[k] === sw)]; return d && d.vlans && d.vlans[num] !== undefined; }));
+  if (leaks.length && (anyVlan || !hasVlan)) add('fix', '通信', `違う VLAN どうしなのに ping が届く組み合わせがあります（${pairs(leaks).slice(0, 6).join('、')}${pairs(leaks).length > 6 ? ' など' : ''}）。`, `VLAN で分けたつもりのポートが、まだ同じ VLAN（VLAN 1 のままなど）に入っていないか。SW1# で show vlan brief を打って、ポートの並びを確かめよう（${P.check}）。`);
   const afails = access.filter(r => !r.ok);
   if (afails.length && !fails.length) { const f = afails[0], td = mapR[f.t] || mapS[f.t];
     add('fix', '通信', `ログインできない組み合わせがあります（${afails.map(r => `${pname(r.a, mapP)}→${r.t}`).slice(0, 6).join('、')}${afails.length > 6 ? ' など' : ''}）。`, `まず ping で届くかを近い順に確かめる。ping も届かないなら道（アドレス・デフォルトゲートウェイ）の問題。行きは届いても返事が戻らないことがある（相手のデフォルトゲートウェイ）。ping は届くのにログインできないなら、相手のログインの設定を見る。`);
@@ -260,17 +334,18 @@ function diagnose(xmlDoc, specKey, opts = {}) {
 
   // ファイル名・学籍番号
   if (opts.fileName && opts.sid) { const re = new RegExp('^' + opts.sid.replace(/[^0-9a-z]/gi, '') + '_\\d{6}\\.pkt$', 'i');
-    if (!re.test(opts.fileName)) add('check', 'ファイル名', `ファイル名が「${opts.fileName}」になっています。`, `「学籍番号_授業日6桁.pkt」（例：${opts.sid}_${specKey === '3' ? '261015' : '261019'}.pkt）にして提出しよう。`); }
+    if (!re.test(opts.fileName)) add('check', 'ファイル名', `ファイル名が「${opts.fileName}」になっています。`, `「学籍番号_授業日6桁.pkt」（例：${opts.sid}_${spec.date || (specKey === '3' ? '261015' : '261019')}.pkt）にして提出しよう。`); }
 
   // 一覧表
   const summary = {
     routers: Object.keys(spec.routers).map(n => ({ n, d: mapR[n] })), switches: Object.keys(spec.switches).map(n => ({ n, d: mapS[n] })),
-    pcs: Object.keys(spec.pcs).map(n => ({ n, d: mapP[n], c: mapP[n] ? pcIP(mapP[n]) : null })),
+    pcs: Object.keys(spec.pcs).map(n => { const d = mapP[n], sp = d ? swPortOf(d) : null;
+      return { n, d, c: d ? pcIP(d) : null, port: sp ? sp.port : null, vlan: sp ? portVlan(sp.sw, sp.port) : null }; }),
   };
   items.forEach(i => { if (!i.how) i.how = howFor(i, spec); });
   // 7. どの確認まで進んだか
   const stages = (spec.stages || []).map(st => {
-    const res = st.need.map(([t, a, lab]) => stageCheck(t, a, lab, { spec, routers, switches, mapR, mapS, mapP, pcIP, sim, items, pingRows, access, opts, vty04 }));
+    const res = st.need.map(([t, a, lab]) => stageCheck(t, a, lab, { spec, routers, switches, mapR, mapS, mapP, pcIP, sim, items, pingRows, access, opts, vty04, swPortOf, portVlan }));
     let miss = res.filter(r => !r.ok).map(r => r.label);
     if (miss.length > 1) miss = miss.filter(l => !l.startsWith('「確かめること」'));
     return { name: st.name, page: st.page, ok: res.every(r => r.ok), missing: miss };
@@ -284,6 +359,9 @@ function howFor(i, spec) {
   if (w === '通信' || w === 'ファイル全体' || w === 'ファイル名') return null;
   if (/ケーブル/.test(t)) return { where: 'Packet Tracer の構成図', cmd: '', look: 'リンクの両端の印。緑の▲ならつながっている、赤の▼ならつながっていない' };
   if (/ホスト名/.test(t)) return { where: `${w} の CLI`, cmd: '', look: `プロンプトの名前（${w}> や ${w}#）。Switch> や Router> のままなら、ホスト名は設定されていない` };
+  if (pc && /につながっています/.test(t)) return { where: 'Packet Tracer の構成図', cmd: '', look: `${w} と SW1 をつなぐケーブルの、SW1 側のポート名（ケーブルにマウスを重ねると表示される）` };
+  if (pc && /デフォルトゲートウェイに .* が入って/.test(t)) return null;
+  if (sw && /VLAN|トランク|switchport/.test(t)) return { where: cli(w), cmd: 'show vlan brief', look: /トランク|switchport/.test(t) ? 'そのポートが VLAN の行に並んでいるか（トランクのポートは show vlan brief に出ない）。switchport の設定は show running-config の interface の下で見る' : 'VLAN 番号・名前と、その行に並ぶポート（Fa0/1, Fa0/2, …）' };
   if (pc) return { where: `${w} の Desktop → Command Prompt`, cmd: 'ipconfig', look: 'IPv4 Address・Subnet Mask・Default Gateway を表と見比べる' };
   if (/特権パスワード|enable secret|enable password/.test(t)) return { where: cli(w), cmd: 'show running-config', look: '先頭近くの enable secret の行（「enable secret 5 $1$…」と表示されれば secret）。値そのものは、PC から telnet して enable で入れるかで試す' };
   if (/RSA/.test(t)) return { where: cli(w), cmd: 'show ip ssh', look: '「SSH Enabled - version 2.0」と表示されるか' };
@@ -304,7 +382,19 @@ function stageCheck(t, a, lab, c) {
       (!c.opts.sid || io.users.some(u => u.name.toLowerCase() === c.opts.sid.toLowerCase())) && v.login === 'local' && /^ssh$/.test(v.transport || ''); };
   const dev = n => mapR[n] || mapS[n];
   switch (t) {
-    case 'pc': { const d = mapP[a], e = NET.cidr(spec.pcs[a].ip), x = d ? pcIP(d) : {}; return ok(d && x.ip === e.ip && x.mask === e.mask && x.gw === spec.pcs[a].gw, `${a} のアドレス・マスク・デフォルトGW`); }
+    case 'pc': { const d = mapP[a], p = spec.pcs[a], e = NET.cidr(p.ip), x = d ? pcIP(d) : {}; return ok(d && x.ip === e.ip && x.mask === e.mask && (p.gw === '' || x.gw === p.gw), p.gw === '' ? `${a} のアドレス・マスク` : `${a} のアドレス・マスク・デフォルトGW`); }
+    case 'port': { const d = mapP[a], sp = d && c.swPortOf(d); return ok(sp && sp.port === spec.pcs[a].port, `${a} を SW1 の ${spec.pcs[a].port.replace('FastEthernet', 'Fa')} につなぐ`); }
+    case 'swhost': return ok(mapS[a] && mapS[a].ios.hostname === a, `${a} のホスト名`);
+    case 'vlan': { const [sw, num] = a.split(':'), d = mapS[sw], v = spec.switches[sw].vlans[num];
+      let good = !!(d && d.vlans && (d.vlans[num] || '').toUpperCase() === v.name);
+      for (let k = v.from; good && k <= v.to; k++) { const i = d.ios.ifaces[`FastEthernet0/${k}`]; good = !!(i && i.vlan === num); }
+      return ok(good, `VLAN ${num}（名前 ${v.name}）を作り、Fa0/${v.from}〜${v.to} を入れる`); }
+    case 'pvlan': { const d = mapP[a], sp = d && c.swPortOf(d); return ok(sp && c.portVlan(sp.sw, sp.port) === spec.pcs[a].vlan, `${a} のポートが VLAN ${spec.pcs[a].vlan} に入っている`); }
+    case 'noping': { const [x, y] = a.split('>'); return ok(mapP[x] && mapP[y] && !sim.ping(mapP[x], mapP[y]) && c.pingRows.some(r => r.ok), `${x} → ${y} の ping が届かない（VLAN が違う）`); }
+    case 'pingpre': { const [x, y] = a.split('>'), X = mapP[x], Y = mapP[y]; if (!X || !Y) return ok(false, `${x} → ${y} の ping（VLAN を分ける前）`);
+      const sx = c.swPortOf(X), sy = c.swPortOf(Y), split = sx && sy && c.portVlan(sx.sw, sx.port) === spec.pcs[x].vlan && c.portVlan(sy.sw, sy.port) === spec.pcs[y].vlan;
+      return ok(sim.ping(X, Y) || split, `${x} → ${y} の ping（VLAN を分ける前）`); }
+    case 'expect': return ok(Object.keys(spec.pcs).every(n => mapP[n]) && c.pingRows.every(r => r.ok === r.exp), '同じ VLAN どうしだけ ping が届く（すべての組み合わせ）');
     case 'count': return ok((a === 'Switch' ? c.switches : c.routers).length > 0, a);
     case 'rhost': return ok(mapR[a] && mapR[a].ios.hostname === a, `${a} のホスト名`);
     case 'rif': { const d = mapR[a]; return ok(d && Object.entries(spec.routers[a].if).every(([k, v]) => { const i = d.ios.ifaces[k], e = NET.cidr(v); return i && i.ip === e.ip && i.mask === e.mask && !i.shutdown; }), `${a} の ${Object.keys(spec.routers[a].if).map(k => k.replace('FastEthernet', 'Fa')).join('・')}（アドレスと no shutdown）`); }
@@ -326,18 +416,26 @@ function pname(d, mapP) { const n = Object.keys(mapP).find(k => mapP[k] === d); 
 
 // ---- 届くかどうかの簡易シミュレーション（L2 セグメント＋静的ルート） ----
 function buildSim(devs, links, linkUp) {
-  const parent = new Map(); devs.forEach(d => parent.set(d, d));
-  const f = x => { while (parent.get(x) !== x) x = parent.get(x); return x; };
+  // スイッチは VLAN ごとに別のセグメントとして扱う（キー「スイッチ|VLAN」）
+  const parent = new Map();
+  const f = x => { if (!parent.has(x)) parent.set(x, x); while (parent.get(x) !== x) x = parent.get(x); return x; };
   const swPortUp = (d, port) => { if (d.kind !== 'Switch') return true; const i = d.ios.ifaces[port]; return !(i && i.shutdown); };
+  const vlanOf = (d, port) => { const i = d.ios.ifaces[port] || {}; return i.mode === 'trunk' ? '1' : (i.vlan || '1'); };
+  const vlanExists = (d, v) => !d.vlans || v in d.vlans;   // ない VLAN に入れたポートは使えない
+  const node = (d, v) => d.ref + '|' + v;
   const up = links.filter(l => linkUp.has(l) && swPortUp(l.a, l.ap) && swPortUp(l.b, l.bp));
-  up.filter(l => l.a.kind === 'Switch' && l.b.kind === 'Switch').forEach(l => parent.set(f(l.a), f(l.b)));
+  up.filter(l => l.a.kind === 'Switch' && l.b.kind === 'Switch').forEach(l => {
+    const ta = (l.a.ios.ifaces[l.ap] || {}).mode === 'trunk', tb = (l.b.ios.ifaces[l.bp] || {}).mode === 'trunk';
+    if (ta || tb) { const vs = new Set([...Object.keys(l.a.vlans || { 1: '' }), ...Object.keys(l.b.vlans || { 1: '' })]); vs.forEach(v => parent.set(f(node(l.a, v)), f(node(l.b, v)))); }
+    else parent.set(f(node(l.a, vlanOf(l.a, l.ap))), f(node(l.b, vlanOf(l.b, l.bp)))); });
   const segs = new Map(); const segOf = new Map(); // endpoint key -> seg id
   const addEp = (seg, dev, port) => { if (!segs.has(seg)) segs.set(seg, []); segs.get(seg).push({ dev, port }); };
   up.forEach((l, i) => {
     const sa = l.a.kind === 'Switch', sb = l.b.kind === 'Switch';
-    if (sa && !sb) addEp(f(l.a), l.b, l.bp); else if (sb && !sa) addEp(f(l.b), l.a, l.ap);
+    if (sa && !sb) { const v = vlanOf(l.a, l.ap); if (vlanExists(l.a, v)) addEp(f(node(l.a, v)), l.b, l.bp); }
+    else if (sb && !sa) { const v = vlanOf(l.b, l.bp); if (vlanExists(l.b, v)) addEp(f(node(l.b, v)), l.a, l.ap); }
     else if (!sa && !sb) { const k = 'd' + i; addEp(k, l.a, l.ap); addEp(k, l.b, l.bp); } });
-  devs.filter(d => d.kind === 'Switch').forEach(d => addEp(f(d), d, 'Vlan1'));
+  devs.filter(d => d.kind === 'Switch').forEach(d => addEp(f(node(d, '1')), d, 'Vlan1'));
   const addr = (dev, port) => {
     if (dev.kind === 'Pc') { const p = dev.ports.find(q => q.ip) || {}; return p.ip ? { ip: p.ip, len: NET.mask2len(p.mask) } : null; }
     const i = dev.ios && dev.ios.ifaces[port]; if (!i || !i.ip || i.shutdown) return null; return { ip: i.ip, len: NET.mask2len(i.mask) }; };

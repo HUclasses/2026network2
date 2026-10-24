@@ -8,6 +8,7 @@
 
 - 第3回: `pkt-check/03/`
 - 第4回: `pkt-check/04/`
+- 第5回: `pkt-check/05/`（VLAN。SPECS の pcs に port・vlan、switches に vlans を書くと、ポートの VLAN と「同じ VLAN どうしだけ届く」を確かめる）
 
 ### 新しい回を足すには
 

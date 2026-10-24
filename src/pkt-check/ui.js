@@ -7,7 +7,8 @@
   const lesson = window.PKT_LESSON;
   const sid = $('#sid'); sid.value = store.get('pktcheck.sid') || '';
   let last = null;
-  { const p = SPECS[lesson].pages; $('#lesson-note').innerHTML = `<span class="nw">${esc(SPECS[lesson].label)}。</span><wbr>資料の <span class="nw">${p.diagram}（構成図）</span>と<wbr> <span class="nw">${p.table}（アドレスの表）。</span>`; }
+  { const p = SPECS[lesson].pages; $('#lesson-note').innerHTML = `<span class="nw">${esc(SPECS[lesson].label)}。</span><wbr>資料の ` + (p.diagram === p.table ? `<span class="nw">${p.table}（構成図とアドレスの表）。</span>` : `<span class="nw">${p.diagram}（構成図）</span>と<wbr> <span class="nw">${p.table}（アドレスの表）。</span>`); }
+  const hasVlan = Object.values(SPECS[lesson].pcs).some(p => p.vlan);
   if (SPECS[lesson].routerLogin === 'ssh') $('#sid-note').innerHTML = '入力すると、<wbr>SSH のユーザ名と<wbr>ファイル名も<wbr>確かめます。';
   sid.addEventListener('change', () => { store.set('pktcheck.sid', sid.value.trim()); if (last) run(last); });
 
@@ -68,20 +69,28 @@
       const login = spec.routerLogin === 'ssh' ? (v.transport === 'ssh' && v.login === 'local' ? `SSH（${esc(io.users.map(u => u.name).join(', ') || 'ユーザなし')}）` : (v.login ? 'telnet' : '—')) : (v.login ? 'telnet' : '—');
       rows.push({ role: 'ルータ', n, host: io.hostname || '—', addr: a + (routes ? `<br><span class="sub">静的ルート</span><br>${routes}` : ''), gw: '', login });
     }
+    const rng = ks => { const out = []; let st = null, pv = null; for (const k of ks) { if (st === null) st = pv = k; else if (k === pv + 1) pv = k; else { out.push(st === pv ? `Fa0/${st}` : `Fa0/${st}〜${pv}`); st = pv = k; } } if (st !== null) out.push(st === pv ? `Fa0/${st}` : `Fa0/${st}〜${pv}`); return out.join('、'); };
     for (const { n, d } of r.summary.switches) {
       if (!d) { rows.push({ role: 'スイッチ', n, host: '—', addr: '<span class="ng">見つからない</span>', gw: '', login: '' }); continue; }
       const io = d.ios, v1 = io.ifaces.Vlan1 || {}, v = io.vty['0 4'] || io.vty['0 15'] || {};
+      if (spec.switches[n].vlans) {
+        const nums = Object.keys(d.vlans || { 1: 'default' }).filter(k => !['1002', '1003', '1004', '1005'].includes(k)).sort((a, b) => a - b);
+        const ports = num => { const ks = []; for (let k = 1; k <= 24; k++) { const i = io.ifaces[`FastEthernet0/${k}`] || {}; if ((i.vlan || '1') === num && i.mode !== 'trunk') ks.push(k); } return rng(ks) || 'なし'; };
+        const list = nums.map(num => `VLAN <span class="mono">${esc(num)}</span> <span class="mono">${esc((d.vlans || {})[num] || '')}</span>：${ports(num)}`).join('<br>');
+        rows.push({ role: 'スイッチ', n, host: io.hostname || '—', addr: list, gw: '', login: v.login ? 'telnet' : '—' }); continue; }
       rows.push({ role: 'スイッチ', n, host: io.hostname || '—', addr: 'vlan1 ' + (v1.ip ? addr(v1.ip, NET.mask2len(v1.mask)) : '<span class="ng">未設定</span>'), gw: io.dgw ? addr(io.dgw, NET.mask2len(v1.mask)) : '<span class="ng">未設定</span>', login: v.login ? 'telnet' : '—' });
     }
     for (const { n, d, c } of r.summary.pcs) {
       if (!d) { rows.push({ role: 'PC', n, host: '—', addr: '<span class="ng">見つからない</span>', gw: '', login: '' }); continue; }
-      rows.push({ role: 'PC', n, host: d.name === n ? n : `${d.name}（表示名）`, addr: addr(c.ip, NET.mask2len(c.mask)), gw: c.gw ? addr(c.gw, NET.mask2len(c.mask)) : '<span class="ng">未設定</span>', login: '' });
+      const pv = r.summary.pcs.find(x => x.n === n), noGw = spec.pcs[n].gw === '';
+      const where = hasVlan ? `<br><span class="sub">${pv.port ? esc(pv.port.replace('FastEthernet', 'Fa')) + '・VLAN ' + esc(pv.vlan) : 'スイッチにつながっていない'}</span>` : '';
+      rows.push({ role: 'PC', n, host: d.name === n ? n : `${d.name}（表示名）`, addr: addr(c.ip, NET.mask2len(c.mask)) + where, gw: c.gw && c.gw !== '0.0.0.0' ? addr(c.gw, NET.mask2len(c.mask)) : (noGw ? '空欄' : '<span class="ng">未設定</span>'), login: '' });
     }
     const pcNames = Object.keys(spec.pcs).filter(n => r.mapP[n]);
-    const ping = {}; r.pingRows.forEach(x => { ping[pname(x.a, r.mapP) + '>' + pname(x.b, r.mapP)] = x.ok; });
+    const ping = {}, exp = {}; r.pingRows.forEach(x => { const k = pname(x.a, r.mapP) + '>' + pname(x.b, r.mapP); ping[k] = x.ok; exp[k] = x.exp; });
     const acc = {}; r.access.forEach(x => { acc[pname(x.a, r.mapP) + '>' + x.t] = x.ok; });
-    const targets = [...Object.keys(spec.routers).map(n => ({ n, how: spec.routerLogin })), ...Object.keys(spec.switches).map(n => ({ n, how: 'telnet' }))];
-    return { name, version: r.version, items: r.items, rows, pcNames, ping, acc, targets, spec, stages: r.stages };
+    const targets = [...Object.keys(spec.routers).map(n => ({ n, how: spec.routerLogin })), ...Object.keys(spec.switches).filter(n => spec.switches[n].ip).map(n => ({ n, how: 'telnet' }))];
+    return { name, version: r.version, items: r.items, rows, pcNames, ping, exp, acc, targets, spec, stages: r.stages };
   }
 
   function render(v, demo) {
@@ -91,11 +100,11 @@
     const how = h => h ? `<p class="how"><b>確かめ方</b>${esc(h.where)}${h.cmd ? ` で <code>${esc(h.cmd)}</code>` : ''}。${esc(h.look)}</p>` : '';
     const trace = tr => tr && tr.hops.length ? `<div class="trace"><b>${esc(tr.from)} の Command Prompt で、近い順に ping してみると（見込み）</b><ol>${tr.hops.map((x, k) => `<li class="${x.ok ? 'ok' : 'ng'}"><code>C:\\&gt; ping ${esc(x.ip)}</code><span>${x.who ? esc(x.who) + ' ' : ''}${x.ok ? '○ 届く' : '× 届かない'}</span></li>`).join('')}</ol>${tr.hops.some(x => !x.ok) ? `<p>最初に × になった所の手前までは届いている。そこから先の機器と、返事の帰り道（相手のデフォルトゲートウェイ）を確かめよう。</p>` : ''}</div>` : '';
     const li = i => `<li class="item"><span class="badge ${i.level}">${label[i.level]}</span><p><span class="who">${esc(i.who)}</span>${esc(i.text)}</p>${i.hint ? `<p class="hint"><b>ヒント</b>${esc(i.hint)}</p>` : ''}${how(i.how)}${trace(i.trace)}</li>`;
-    const list = v.items.length ? `<ul class="items">${[...fix, ...chk, ...info].map(li).join('')}</ul>` : `<div class="allgood"><b>指摘はありません。</b> 実際に各 PC から ping・${v.spec.routerLogin === 'ssh' ? 'ssh・' : ''}telnet を試して、提出用のスクリーンショット（${v.spec.shot.from} → ${v.spec.shot.to}）を撮ろう。</div>`;
+    const list = v.items.length ? `<ul class="items">${[...fix, ...chk, ...info].map(li).join('')}</ul>` : `<div class="allgood"><b>指摘はありません。</b> 実際に各 PC から ping${v.targets.length ? '・' + (v.spec.routerLogin === 'ssh' ? 'ssh・' : '') + 'telnet' : ''} を試して、提出用のスクリーンショット（${v.spec.shot.text || v.spec.shot.from + ' → ' + v.spec.shot.to}）を撮ろう。</div>`;
     const cnt = `${chk.length ? `確認 ${chk.length} 件` : ''}${chk.length && info.length ? '・' : ''}${info.length ? `参考 ${info.length} 件` : ''}`;
-    const devTable = `<div class="tablebox"><table><thead><tr><th>機器</th><th>ホスト名</th><th>アドレス</th><th>デフォルトGW</th><th>ログイン</th></tr></thead><tbody>${v.rows.map(r => `<tr><td>${esc(r.role)} <b>${esc(r.n)}</b></td><td class="mono">${esc(r.host)}</td><td>${r.addr}</td><td>${r.gw || '－'}</td><td>${r.login || '－'}</td></tr>`).join('')}</tbody></table></div>`;
+    const devTable = `<div class="tablebox"><table><thead><tr><th>機器</th><th>ホスト名</th><th>${hasVlan ? 'アドレス・VLAN' : 'アドレス'}</th><th>デフォルトGW</th><th>ログイン</th></tr></thead><tbody>${v.rows.map(r => `<tr><td>${esc(r.role)} <b>${esc(r.n)}</b></td><td class="mono">${esc(r.host)}</td><td>${r.addr}</td><td>${r.gw || '－'}</td><td>${r.login || '－'}</td></tr>`).join('')}</tbody></table></div>`;
     const mark = ok => ok === undefined ? '－' : ok ? '<span class="ok" aria-label="届く">○</span>' : '<span class="ng" aria-label="届かない">×</span>';
-    const pingT = `<div class="tablebox"><table class="mx"><thead><tr><th>送信元 ＼ 宛先</th>${v.pcNames.map(n => `<th>${n}</th>`).join('')}</tr></thead><tbody>${v.pcNames.map(a => `<tr><th scope="row">${a}</th>${v.pcNames.map(b => `<td>${a === b ? '－' : mark(v.ping[a + '>' + b])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    const pingT = `<div class="tablebox"><table class="mx"><thead><tr><th>送信元 ＼ 宛先</th>${v.pcNames.map(n => `<th>${n}</th>`).join('')}</tr></thead><tbody>${v.pcNames.map(a => `<tr><th scope="row">${a}</th>${v.pcNames.map(b => { const k = a + '>' + b, bad = v.exp && v.exp[k] !== undefined && v.exp[k] !== v.ping[k]; return `<td${bad ? ' style="background:var(--vermilion-tint)" title="想定と違う"' : ''}>${a === b ? '－' : mark(v.ping[k])}${bad ? '<span class="ng">!</span>' : ''}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
     const accT = `<div class="tablebox"><table class="mx"><thead><tr><th>PC ＼ 機器</th>${v.targets.map(t => `<th>${t.n}<br><span class="sub">${t.how}</span></th>`).join('')}</tr></thead><tbody>${v.pcNames.map(a => `<tr><th scope="row">${a}</th>${v.targets.map(t => `<td>${mark(v.acc[a + '>' + t.n])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     $('#out').innerHTML = `
       <div style="display:grid;gap:var(--s6)">
@@ -103,7 +112,8 @@
         ${progress(v)}
         <section><h2>確かめること</h2>${list}</section>
         <section><h2>ファイルの中身</h2><p class="sub">アドレスは、ネットワーク部を薄く、ホスト部を緑で示しています。表（${v.spec.pages.table}）と見比べよう。</p>${devTable}</section>
-        <section><h2>通信の見込み</h2><div class="grid2"><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC どうしの ping（行きと帰りの両方が届くか）</p>${pingT}</div><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC からルータ・スイッチへのログイン</p>${accT}</div></div></section>
+        <section><h2>通信の見込み</h2>${v.targets.length ? `<div class="grid2"><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC どうしの ping（行きと帰りの両方が届くか）</p>${pingT}</div><div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC からルータ・スイッチへのログイン</p>${accT}</div></div>`
+          : `<div style="display:grid;gap:var(--s2);min-width:0"><p class="sub">PC どうしの ping（行きと帰りの両方が届くか）。${hasVlan ? '同じ VLAN どうしは○、違う VLAN どうしは×になるのが正しい。想定と違うマスは色を付け、「!」を付けています。' : ''}</p>${pingT}</div>`}</section>
       </div>`;
     const again = $('#again'); if (again) again.addEventListener('click', () => file.click());
   }
@@ -114,7 +124,7 @@
     const cells = v.stages.map(s => `<li class="step ${s.ok ? 'done' : (s === next ? 'next' : '')}"><span class="sname">${esc(s.name)}</span><span class="sstate">${s.ok ? 'できている' : `あと ${s.missing.length} つ`}</span><span class="spage">資料 ${esc(s.page)}</span></li>`).join('');
     const body = next ? `<div class="nextbox"><p class="nexthead"><b>次は${esc(next.name)}</b>（資料 ${esc(next.page)}）。ファイルにまだ入っていないもの：</p><ul>${next.missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>`
       : `<div class="allgood"><b>確認①〜③と実習の内容が、すべてファイルに入っています。</b></div>`;
-    return `<section><h2>どこまでできたか</h2><p class="sub">ファイルの中身から判断しています。確認①〜③の manaba への入力は、別に必要です。</p><ol class="steps">${cells}</ol>${body}</section>`;
+    return `<section><h2>どこまでできたか</h2><p class="sub">ファイルの中身から判断しています。確認①〜③の manaba への提出は、別に必要です。</p><ol class="steps">${cells}</ol>${body}</section>`;
   }
 
   function renderDemo() {
