@@ -383,7 +383,7 @@ function parseIOS(lines) {
       else if ((m = /^ip route (\S+) (\S+) (\S+)/.exec(s))) r.routes.push({ dest: m[1], mask: m[2], via: m[3] });
       else if ((m = /^ip domain-name (\S+)/.exec(s))) r.domain = m[1];
       else if ((m = /^ip ssh version (\d)/.exec(s))) r.sshVer = m[1];
-      else if ((m = /^username (\S+)(?: privilege \d+)? (secret|password) (?:\d+ )?(\S+)/.exec(s))) r.users.push({ name: m[1], kind: m[2], value: m[3] });
+      else if ((m = /^username (\S+)(?: privilege (\d+))? (secret|password) (?:\d+ )?(\S+)/.exec(s))) r.users.push({ name: m[1], priv: m[2] || null, kind: m[3], value: m[4] });
       else if ((m = /^interface (\S+)/.exec(s))) { cur = { t: 'if', n: m[1] }; r.ifaces[m[1]] = { ip: null, mask: null, shutdown: false, vlan: null, mode: null }; }
       else if ((m = /^line vty (\d+)(?: (\d+))?/.exec(s))) { cur = { t: 'vty', n: m[1] + ' ' + (m[2] || m[1]) }; r.vty[cur.n] = { password: null, login: null, transport: null }; }
     } else if (cur) { const t = s.trim(); let m;
@@ -524,6 +524,7 @@ function diagnose(xmlDoc, specKey, opts = {}) {
       for (const u of io.users) {
         if (u.name === '2024z999') add('fix', who, 'ユーザ名が例の 2024z999 のままです。', '自分の学籍番号に置き換えよう。');
         else if (opts.sid && u.name.toLowerCase() !== opts.sid.toLowerCase()) add('fix', who, `ユーザ名が ${u.name} になっていて、入力した学籍番号と違います。`, '打ち間違いがないか確かめよう。');
+        if (u.priv && u.priv !== '1') add('fix', who, `username ${u.name} に privilege ${u.priv} が付いています。`, `これだと ssh でログインしただけで特権モード（${n}#）になり、特権パスワード（enable secret）を聞かれない。ログインを安全にするという目的とは逆の設定。資料（${P.ssh}）にない設定を、意味を確かめずに入れないこと。no username ${u.name} で消してから、資料のとおり username … secret … を設定し直そう。`);
         if (u.kind === 'password') add('check', who, `username ${u.name} が password で設定されています。`, 'secret で設定しよう（ハッシュ化される）。');
         else if (MD5C.check(u.value, spec.sshUserPassword) === false) add('fix', who, `username ${u.name} のパスワードが ${spec.sshUserPassword} ではないようです。`, '打ち間違いがないか確かめ、username … secret … を設定し直そう。'); }
       if (!v || v.login !== 'local') add('fix', who, 'line vty 0 4 が login local になっていません。', 'ユーザ名とパスワードでログインするには login local。');
@@ -648,7 +649,7 @@ function stageCheck(t, a, lab, c) {
   const vty = d => (d && c.vty04(d.ios)) || {};
   const telnetOK = d => { const v = vty(d); return v.login === 'line' && v.password === spec.vtyPassword; };
   const sshOK = d => { if (!d) return false; const io = d.ios, v = vty(d);
-    return !!io.domain && (d.rsaBits > 0 || d.rsaKey) && io.users.length > 0 && !io.users.some(u => u.name === '2024z999') &&
+    return !!io.domain && (d.rsaBits > 0 || d.rsaKey) && io.users.length > 0 && !io.users.some(u => u.name === '2024z999' || (u.priv && u.priv !== '1')) &&
       (!c.opts.sid || io.users.some(u => u.name.toLowerCase() === c.opts.sid.toLowerCase())) && v.login === 'local' && /^ssh$/.test(v.transport || ''); };
   const dev = n => mapR[n] || mapS[n];
   switch (t) {
