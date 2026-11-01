@@ -76,14 +76,17 @@
       if (spec.switches[n].vlans) {
         const nums = Object.keys(d.vlans || { 1: 'default' }).filter(k => !['1002', '1003', '1004', '1005'].includes(k)).sort((a, b) => a - b);
         const ports = num => { const ks = []; for (let k = 1; k <= 24; k++) { const i = io.ifaces[`FastEthernet0/${k}`] || {}; if ((i.vlan || '1') === num && i.mode !== 'trunk') ks.push(k); } return rng(ks) || 'なし'; };
-        const list = nums.map(num => `VLAN <span class="mono">${esc(num)}</span> <span class="mono">${esc((d.vlans || {})[num] || '')}</span>：${ports(num)}`).join('<br>');
+        let list = nums.map(num => `VLAN <span class="mono">${esc(num)}</span> <span class="mono">${esc((d.vlans || {})[num] || '')}</span>：${ports(num)}`).join('<br>');
+        const tp = spec.switches[n].trunk;
+        if (tp) { const ti = io.ifaces[tp] || {}; list += `<br><span class="sub">${esc(short(tp))}：</span>` + (ti.mode === 'trunk' ? `トランク（mode trunk${ti.noneg ? '・nonegotiate' : ''}）` : `<span class="ng">トランクの設定なし（${ti.mode ? 'mode ' + esc(ti.mode) : '何も設定していない'}）</span>`); }
         rows.push({ role: 'スイッチ', n, host: io.hostname || '—', addr: list, gw: '', login: v.login ? 'telnet' : '—' }); continue; }
       rows.push({ role: 'スイッチ', n, host: io.hostname || '—', addr: 'vlan1 ' + (v1.ip ? addr(v1.ip, NET.mask2len(v1.mask)) : '<span class="ng">未設定</span>'), gw: io.dgw ? addr(io.dgw, NET.mask2len(v1.mask)) : '<span class="ng">未設定</span>', login: v.login ? 'telnet' : '—' });
     }
     for (const { n, d, c } of r.summary.pcs) {
       if (!d) { rows.push({ role: 'PC', n, host: '—', addr: '<span class="ng">見つからない</span>', gw: '', login: '' }); continue; }
       const pv = r.summary.pcs.find(x => x.n === n), noGw = spec.pcs[n].gw === '';
-      const where = hasVlan ? `<br><span class="sub">${pv.port ? esc(pv.port.replace('FastEthernet', 'Fa')) + '・VLAN ' + esc(pv.vlan) : 'スイッチにつながっていない'}</span>` : '';
+      const multiSw = Object.keys(spec.switches).length > 1;
+      const where = hasVlan ? `<br><span class="sub">${pv.port ? (pv.swName && multiSw ? esc(pv.swName) + ' の ' : '') + esc(pv.port.replace('FastEthernet', 'Fa')) + '・VLAN ' + esc(pv.vlan) : 'スイッチにつながっていない'}</span>` : '';
       rows.push({ role: 'PC', n, host: d.name === n ? n : `${d.name}（表示名）`, addr: addr(c.ip, NET.mask2len(c.mask)) + where, gw: c.gw && c.gw !== '0.0.0.0' ? addr(c.gw, NET.mask2len(c.mask)) : (noGw ? '空欄' : '<span class="ng">未設定</span>'), login: '' });
     }
     const pcNames = Object.keys(spec.pcs).filter(n => r.mapP[n]);
@@ -118,13 +121,15 @@
     const again = $('#again'); if (again) again.addEventListener('click', () => file.click());
   }
 
+  const stepWord = v => /^ステップ/.test(v.stages[0].name) ? `ステップ 1〜${v.stages.length - 1}` : '確認①〜③';
   function progress(v) {
     if (!v.stages || !v.stages.length) return '';
     const next = v.stages.find(s => !s.ok);
     const cells = v.stages.map(s => `<li class="step ${s.ok ? 'done' : (s === next ? 'next' : '')}"><span class="sname">${esc(s.name)}</span><span class="sstate">${s.ok ? 'できている' : `あと ${s.missing.length} つ`}</span><span class="spage">資料 ${esc(s.page)}</span></li>`).join('');
     const body = next ? `<div class="nextbox"><p class="nexthead"><b>次は${esc(next.name)}</b>（資料 ${esc(next.page)}）。ファイルにまだ入っていないもの：</p><ul>${next.missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>`
-      : `<div class="allgood"><b>確認①〜③と実習の内容が、すべてファイルに入っています。</b></div>`;
-    return `<section><h2>どこまでできたか</h2><p class="sub">ファイルの中身から判断しています。確認①〜③の manaba への提出は、別に必要です。</p><ol class="steps">${cells}</ol>${body}</section>`;
+      : `<div class="allgood"><b>${esc(stepWord(v))}と実習の内容が、すべてファイルに入っています。</b></div>`;
+    const subNote = /^ステップ/.test(v.stages[0].name) ? 'スクリーンショット 4 枚の manaba への提出は、別に必要です。' : '確認①〜③の manaba への提出は、別に必要です。';
+    return `<section><h2>どこまでできたか</h2><p class="sub">ファイルの中身から判断しています。${subNote}</p><ol class="steps">${cells}</ol>${body}</section>`;
   }
 
   function renderDemo() {

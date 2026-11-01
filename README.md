@@ -9,6 +9,7 @@
 - 第3回: `pkt-check/03/`
 - 第4回: `pkt-check/04/`
 - 第5回: `pkt-check/05/`（VLAN。SPECS の pcs に port・vlan、switches に vlans を書くと、ポートの VLAN と「同じ VLAN どうしだけ届く」を確かめる）
+- 第6回: `pkt-check/06/`（スイッチ 2 台とトランク。pcs に sw（つなぐスイッチ）、switches に trunk（トランクにするポート）を書くと、つなぐスイッチ・トランクの設定（mode trunk・nonegotiate）・スイッチどうしのケーブルを確かめる。通信の見込みでは、何も設定していないポートを Packet Tracer の 2950T の既定どおり dynamic desirable とみなす。両端とも何も設定していなくても、片側だけ trunk でも DTP でトランクになる（trunk 側に nonegotiate があればならない））
 
 ### 新しい回を足すには
 
