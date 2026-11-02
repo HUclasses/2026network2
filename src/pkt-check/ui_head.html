@@ -70,6 +70,12 @@ input[type=text]:focus-visible { outline: 2px solid var(--navy); outline-offset:
 @media (max-width: 480px) { .item { grid-template-columns: minmax(0, 1fr); } .item .hint { grid-column: 1; } }
 .item .how { grid-column: 2; font-size: 14px; line-height: 1.7; }
 .item .how b { color: var(--navy); font-size: 12px; letter-spacing: .06em; margin-right: .5em; }
+.item details.what { grid-column: 2; font-size: 14px; line-height: 1.7; }
+.item details.what summary { cursor: pointer; color: var(--ink-muted); }
+.item details.what summary:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.item details.what[open] summary { margin-bottom: 4px; }
+.item details.what p + p { margin-top: 4px; }
+@media (max-width: 480px) { .item details.what { grid-column: 1; } }
 code { font-family: var(--mono); font-size: 13px; background: var(--surface-sunk); border-radius: var(--r-sm); padding: 1px 6px; }
 .trace { grid-column: 2; font-size: 14px; background: var(--surface-sunk); border-radius: var(--r-sm); padding: 10px 12px; display: grid; gap: 6px; min-width: 0; }
 .trace b { font-size: 12px; letter-spacing: .06em; color: var(--navy); }

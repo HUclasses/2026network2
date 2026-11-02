@@ -10,6 +10,8 @@
 - 第4回: `pkt-check/04/`
 - 第5回: `pkt-check/05/`（VLAN。SPECS の pcs に port・vlan、switches に vlans を書くと、ポートの VLAN と「同じ VLAN どうしだけ届く」を確かめる）
 - 第6回: `pkt-check/06/`（スイッチ 2 台とトランク。pcs に sw（つなぐスイッチ）、switches に trunk（トランクにするポート）を書くと、つなぐスイッチ・トランクの設定（mode trunk・nonegotiate）・スイッチどうしのケーブルを確かめる。通信の見込みでは、何も設定していないポートを Packet Tracer の 2950T の既定どおり dynamic desirable とみなす。両端とも何も設定していなくても、片側だけ trunk でも DTP でトランクになる（trunk 側に nonegotiate があればならない））
+- 第7回: `pkt-check/07/`（ルータ・オン・ア・スティック。routers に sub（サブインタフェース：vlan・ip・native・practice）、switches に trunkTo（トランクの相手のルータ）と native を書く。2026-11-02 からの方針のフラグ：cliOnly＝ケーブルの種類は指摘しない、lookFirst＝「見る場所」を先に出し「何が違うか」は開くと表示、hidePractice＝practice の付いた要件（実習）がまだのときは指摘せず「どこまでできたか」に数だけ、routed＝VLAN が違っても届くのが正しい、shots＝提出するスクリーンショットの枚数）
+- カード選び: `card-select/06/`（試作）・`card-select/07/`（実習の前に、操作のカードを並べてスクリーンショットで提出）
 
 ### 新しい回を足すには
 

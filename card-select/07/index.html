@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>第7回 実習のカード選び</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDGothic:wght@400;700&display=swap">
+<style>
+/* 作業台：上に課題（構成図の説明・目標・足すもの）、左にカードの棚、右に自由に置ける盤面。盤面はスクリーンショットでそのまま提出する */
+:root{
+  --bg:#f3f5f8; --panel:#ffffff; --ink:#1f2633; --muted:#5d6676; --line:#cfd6e0;
+  --navy:#1b2a4a; --accent:#e8772e; --accent-bg:#fff1e6;
+  --set:#2f5fb3; --set-bg:#eaf1fc; --chk:#1a8754; --chk-bg:#e6f5ee;
+  --v10:#2f6fd6; --v20:#7c4dba; --v30:#b7791f; --v30-bg:#fef6e4; --trunk:#8a94a6;
+  --board:#fbfcfe; --grid:#e8edf3; --shadow:0 2px 6px rgba(27,42,74,.16);
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-mono:"BIZ UDGothic","Hiragino Sans","Yu Gothic",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141922; --panel:#1c2330; --ink:#e7ebf2; --muted:#a3adbd; --line:#364152;
+  --navy:#c9d6ef; --accent:#f39a5a; --accent-bg:#3a2a1e;
+  --set:#8db3f5; --set-bg:#1f2c45; --chk:#5fd39a; --chk-bg:#163428;
+  --v10:#7fa9f0; --v20:#b394e4; --v30:#e0b060; --v30-bg:#3a2f1a; --trunk:#9aa4b6;
+  --board:#171d28; --grid:#222b38; --shadow:0 2px 8px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141922; --panel:#1c2330; --ink:#e7ebf2; --muted:#a3adbd; --line:#364152;
+  --navy:#c9d6ef; --accent:#f39a5a; --accent-bg:#3a2a1e;
+  --set:#8db3f5; --set-bg:#1f2c45; --chk:#5fd39a; --chk-bg:#163428;
+  --v10:#7fa9f0; --v20:#b394e4; --v30:#e0b060; --v30-bg:#3a2f1a; --trunk:#9aa4b6;
+  --board:#171d28; --grid:#222b38; --shadow:0 2px 8px rgba(0,0,0,.5); color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.6}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 24px;display:grid;gap:12px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px}
+header h1{font-size:19px;margin:0;color:var(--navy);text-wrap:balance}
+header h1 small{display:block;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:.04em}
+.idbox{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.idbox label{font-size:12px;color:var(--muted)}
+#sid{font-family:var(--f-mono);font-size:18px;width:9.5em;padding:4px 8px;border:2px solid var(--accent);border-radius:6px;background:var(--panel);color:var(--ink)}
+.stamp{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.stamp b{color:var(--ink);font-weight:700}
+.task{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px}
+@media (max-width:860px){.task{grid-template-columns:minmax(0,1fr)}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:0}
+.box h2{font-size:13px;margin:0 0 4px;color:var(--navy);letter-spacing:.04em}
+.box ol{margin:0;padding-left:1.4em}
+.box p{margin:0}
+.goal{border-left:4px solid var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+td,th{border-bottom:1px solid var(--line);padding:3px 6px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:400;width:7.5em}
+.mono{font-family:var(--f-mono)}
+.work{display:grid;grid-template-columns:240px minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:760px){.work{grid-template-columns:minmax(0,1fr)}}
+.shelf{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:6px;max-height:820px;overflow:auto}
+.shelf h3{font-size:12px;margin:6px 0 0;color:var(--muted);letter-spacing:.06em}
+.pcard{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);cursor:grab;touch-action:none;user-select:none}
+.pcard:hover,.pcard:focus-visible{border-color:var(--accent);outline:none}
+.pcard .no{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff}
+.pcard.set .no{background:var(--set)} .pcard.chk .no{background:var(--chk);font-size:11px}
+.pcard .nm{font-size:13px;font-weight:700;line-height:1.3}
+.pcard .wh{font-size:11px;color:var(--muted)}
+.hint{font-size:11.5px;color:var(--muted);margin:0}
+.boardwrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--board)}
+#board{position:relative;width:1180px;height:700px;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px}
+#topo{position:absolute;left:0;top:0;width:1180px;height:700px;pointer-events:none}
+#topo text{font-family:var(--f-body)}
+.card{position:absolute;width:214px;background:var(--panel);border:1.5px solid var(--set);border-radius:7px;box-shadow:var(--shadow);font-size:12.5px}
+.card.chk{border-color:var(--chk)}
+.card .hd{display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--set-bg);border-radius:6px 6px 0 0;cursor:move;touch-action:none;user-select:none}
+.card.chk .hd{background:var(--chk-bg)}
+.card .hd .no{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;background:var(--set)}
+.card.chk .hd .no{background:var(--chk);font-size:10px}
+.card .hd .nm{font-weight:700;flex:1;line-height:1.25}
+.card .x{border:0;background:transparent;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1}
+.card .x:focus-visible{outline:2px solid var(--accent)}
+.card .bd{display:grid;grid-template-columns:auto 1fr;gap:4px 6px;padding:6px 7px;align-items:center}
+.card .bd label{font-size:11px;color:var(--muted)}
+.card input,.card textarea{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-radius:4px;background:var(--board);color:var(--ink);padding:2px 4px;min-width:0}
+.card input.ord{width:3.2em;text-align:center;font-weight:700}
+.card textarea{grid-column:1/-1;resize:vertical;min-height:2.6em;line-height:1.35}
+.card.dragging{opacity:.85;z-index:50}
+.ghost{position:fixed;pointer-events:none;z-index:100;opacity:.85}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--f-body);font-size:12.5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:4px 10px;cursor:pointer}
+.btn:hover,.btn:focus-visible{border-color:var(--accent);outline:none}
+.btn.warn{color:var(--accent);border-color:var(--accent)}
+#confirm[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1><small>情報通信ネットワークⅡ 第7回 実習の前に</small>カード選び：実習でやる操作を並べる</h1>
+    <div class="idbox">
+      <label for="sid">学籍番号</label>
+      <input id="sid" autocomplete="off" placeholder="例 2024z999" maxlength="12">
+    </div>
+    <div class="stamp">
+      <span>日時 <b id="now">----/--/-- --:--</b></span>
+      <span>カード <b id="cnt">0</b> 枚</span>
+      <span>配置コード <b id="code">------</b></span>
+    </div>
+  </header>
+
+  <section class="task">
+    <div class="box">
+      <h2>やること</h2>
+      <ol>
+        <li>学籍番号を入れる（自分の番号。例のまま入れない）。</li>
+        <li>下の構成図と目標だけを見て、<b>実習でやる操作</b>のカードを左の棚から選び、その操作をする<b>機器の近く</b>に置く（ドラッグ。同じカードを何枚でも置ける）。</li>
+        <li>各カードに<b>順番</b>（1, 2, 3…）と<b>値</b>（VLAN の番号・名前、ポート、IP アドレスなど）を書く。確かめる操作のカードは、どこからどこへ・何を見るかを書く。</li>
+        <li>ステップ 3 のファイルの続きなので、<b>もうできている設定のカードは置かない</b>。</li>
+        <li>置き終えたら、このページ全体と、ブラウザの大学アカウント（メールアドレスが見える状態）を一緒に撮り、<span class="mono">2024mXYZ_5.png</span> として「第7回 スクリーンショット」に出す。</li>
+      </ol>
+      <p class="hint">答え合わせはありません。スライドを見ずに、構成図と目標から自分で考えてください。カードの位置は自由です（ぴったりそろえなくてよい）。画面に入りきらないときは、ブラウザの表示を縮小（Ctrl と −、Mac は ⌘ と −）してから撮ってください。</p>
+    </div>
+    <div class="box goal">
+      <h2>目標（実習）</h2>
+      <p>ステップ 3 のファイルに、来客用の VLAN 30（GUEST）を足して、<b>PC2 → PC0 の ping が通る</b>ようにする。あわせて、トランクの<b>ネイティブ VLAN を 99</b> にする。</p>
+      <table>
+        <tr><th>足す VLAN</th><td class="mono">30（名前 GUEST）、99（名前 NATIVE）</td></tr>
+        <tr><th>VLAN 30 のポート</th><td class="mono">Fa0/17〜23</td></tr>
+        <tr><th>PC2</th><td class="mono">10.7.30.11／24　GW 10.7.30.1　SW1 Fa0/17</td></tr>
+        <tr><th>VLAN 30 の GW</th><td class="mono">10.7.30.1（RT1）</td></tr>
+        <tr><th>ネイティブ VLAN</th><td class="mono">99（トランクの両端）</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="work">
+    <aside class="shelf" id="shelf" aria-label="カードの棚"></aside>
+    <div style="display:grid;gap:8px;min-width:0">
+      <div class="tools">
+        <span class="hint">カードの色の帯をつかんで動かす。× で外す。</span>
+        <button class="btn warn" id="clearBtn" type="button">全部外す</button>
+        <span id="confirm" hidden>
+          <span class="hint">本当に全部外しますか？</span>
+          <button class="btn warn" id="clearYes" type="button">外す</button>
+          <button class="btn" id="clearNo" type="button">やめる</button>
+        </span>
+      </div>
+      <div class="boardwrap"><div id="board" aria-label="盤面">
+        <svg id="topo" viewBox="0 0 1180 700" aria-hidden="true"></svg>
+      </div></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const ROUTINES=[
+ {id:'r1',k:'set',no:'1',nm:'PC のアドレス設定',wh:'PC／GUI'},
+ {id:'r2',k:'set',no:'2',nm:'機器の初期設定',wh:'ルータ・スイッチ（hostname・enable secret・line vty）'},
+ {id:'r3',k:'set',no:'3',nm:'ルータのインタフェース設定',wh:'ルータ'},
+ {id:'r4',k:'set',no:'4',nm:'スイッチの管理用設定',wh:'スイッチ（vlan 1 の IP・GW）'},
+ {id:'r5',k:'set',no:'5',nm:'静的ルートの設定',wh:'ルータ'},
+ {id:'r6',k:'set',no:'6',nm:'ルータの SSH 化',wh:'ルータ'},
+ {id:'r7',k:'set',no:'7',nm:'Packet Tracer の準備',wh:'機器を置く・つなぐ・表示名'},
+ {id:'r8',k:'set',no:'8',nm:'VLAN を作る',wh:'スイッチ'},
+ {id:'r9',k:'set',no:'9',nm:'ポートを VLAN に入れる',wh:'スイッチ'},
+ {id:'r10',k:'set',no:'10',nm:'トランクにする',wh:'スイッチのポート（mode trunk・nonegotiate）'},
+ {id:'r11',k:'set',no:'11',nm:'サブインタフェースを作る',wh:'ルータ（encapsulation dot1Q・ip address）'},
+ {id:'r12',k:'set',no:'12',nm:'ネイティブ VLAN を変える',wh:'トランクの両端'},
+ {id:'c1',k:'chk',no:'確',nm:'ipconfig /all',wh:'PC：自分の設定'},
+ {id:'c2',k:'chk',no:'確',nm:'ping',wh:'PC：届くか'},
+ {id:'c3',k:'chk',no:'確',nm:'tracert',wh:'PC：どのルータを通るか'},
+ {id:'c4',k:'chk',no:'確',nm:'arp -a',wh:'PC：MAC の対応'},
+ {id:'c5',k:'chk',no:'確',nm:'telnet／ssh でログイン',wh:'PC から'},
+ {id:'c6',k:'chk',no:'確',nm:'show ip interface brief',wh:'ルータ'},
+ {id:'c7',k:'chk',no:'確',nm:'show ip route',wh:'ルータ'},
+ {id:'c8',k:'chk',no:'確',nm:'show vlan brief',wh:'スイッチ'},
+ {id:'c9',k:'chk',no:'確',nm:'show mac-address-table',wh:'スイッチ'},
+ {id:'c10',k:'chk',no:'確',nm:'show interfaces trunk',wh:'スイッチ'},
+ {id:'c11',k:'chk',no:'確',nm:'show running-config',wh:'ルータ・スイッチ'},
+];
+const R=Object.fromEntries(ROUTINES.map(r=>[r.id,r]));
+const KEY='nw2-cardselect-07';
+let cards=[]; let seq=1;
+const $=s=>document.querySelector(s);
+const board=$('#board');
+
+/* 構成図（第7回：RT1＋SW1 のルータ・オン・ア・スティック） */
+(function drawTopo(){
+  const svg=$('#topo');
+  const rt={x:590,y:120}, sw={x:590,y:300};
+  const pcs=[{n:'PC0',p:'Fa0/1',v:10,ip:'10.7.10.11',gw:'10.7.10.1',x:330},
+             {n:'PC1',p:'Fa0/9',v:20,ip:'10.7.20.11',gw:'10.7.20.1',x:590},
+             {n:'PC2',p:'Fa0/17',v:30,ip:'10.7.30.11',gw:'10.7.30.1',x:850,add:true}];
+  const vc={10:'var(--v10)',20:'var(--v20)',30:'var(--v30)'};
+  let h='';
+  h+=`<line x1="${rt.x}" y1="${rt.y+22}" x2="${sw.x}" y2="${sw.y-22}" stroke="var(--trunk)" stroke-width="5"/>`;
+  h+=`<text x="${rt.x+14}" y="${rt.y+52}" font-size="11.5" fill="var(--muted)">Fa0/0</text>`;
+  h+=`<text x="${sw.x+14}" y="${sw.y-32}" font-size="11.5" fill="var(--muted)">Fa0/24</text>`;
+  h+=`<text x="${rt.x-14}" y="${(rt.y+sw.y)/2+4}" text-anchor="end" font-size="12" fill="var(--muted)">トランク（ストレート・ステップ 1 で設定済み）</text>`;
+  h+=`<rect x="${rt.x-46}" y="${rt.y-22}" width="92" height="44" rx="22" fill="var(--set-bg)" stroke="var(--set)" stroke-width="2"/>`;
+  h+=`<text x="${rt.x}" y="${rt.y+6}" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">RT1</text>`;
+  h+=`<text x="${rt.x}" y="${rt.y-30}" text-anchor="middle" font-size="11.5" fill="var(--muted)">2811</text>`;
+  h+=`<text x="${rt.x+58}" y="${rt.y-4}" font-size="12" fill="var(--muted)" font-family="var(--f-mono)">VLAN 10 の GW 10.7.10.1</text>`;
+  h+=`<text x="${rt.x+58}" y="${rt.y+12}" font-size="12" fill="var(--muted)" font-family="var(--f-mono)">VLAN 20 の GW 10.7.20.1</text>`;
+  for(const p of pcs){const py=470;
+    h+=`<line x1="${sw.x}" y1="${sw.y+22}" x2="${p.x}" y2="${py-22}" stroke="${vc[p.v]}" stroke-width="2.5" ${p.add?'stroke-dasharray="7 5"':''}/>`;
+    h+=`<text x="${(sw.x+p.x)/2+(p.x<sw.x?-8:p.x>sw.x?8:6)}" y="${(sw.y+22+py-22)/2}" text-anchor="${p.x<sw.x?'end':'start'}" font-size="11.5" fill="var(--muted)">${p.p}</text>`;
+    h+=`<rect x="${p.x-38}" y="${py-22}" width="76" height="44" rx="6" fill="${p.add?'var(--v30-bg)':'var(--panel)'}" stroke="${vc[p.v]}" stroke-width="2" ${p.add?'stroke-dasharray="6 4"':''}/>`;
+    h+=`<text x="${p.x}" y="${py+5}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">${p.n}</text>`;
+    h+=`<text x="${p.x}" y="${py+40}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="var(--f-mono)">${p.ip}　GW ${p.gw}</text>`;
+    h+=`<text x="${p.x}" y="${py+56}" text-anchor="middle" font-size="11.5" fill="${vc[p.v]}">VLAN ${p.v}${p.add?'（実習で足す）':''}</text>`;
+  }
+  h+=`<rect x="${sw.x-46}" y="${sw.y-22}" width="92" height="44" rx="6" fill="var(--set-bg)" stroke="var(--set)" stroke-width="2"/>`;
+  h+=`<text x="${sw.x}" y="${sw.y+6}" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">SW1</text>`;
+  h+=`<text x="${sw.x+54}" y="${sw.y+5}" font-size="11.5" fill="var(--muted)">2950T-24</text>`;
+  h+=`<text x="590" y="575" text-anchor="middle" font-size="12" fill="var(--muted)">点線＝実習で足すもの。VLAN ごとに別のネットワーク（10.7.VLAN番号.0/24）、マスク 255.255.255.0</text>`;
+  svg.innerHTML=h;
+})();
+
+/* 棚 */
+function shelfHTML(){
+  const g=(k,t)=>`<h3>${t}</h3>`+ROUTINES.filter(r=>r.k===k).map(r=>`<div class="pcard ${r.k}" tabindex="0" role="button" data-rid="${r.id}" aria-label="${r.nm} を盤面に置く"><span class="no">${r.no}</span><span><span class="nm">${r.nm}</span><br><span class="wh">${r.wh}</span></span></div>`).join('');
+  $('#shelf').innerHTML=g('set','設定のルーチン')+g('chk','確かめるルーチン')+`<p class="hint">Enter キーでも置けます（盤面の空いている所に出ます）。</p>`;
+}
+shelfHTML();
+
+function save(){try{localStorage.setItem(KEY,JSON.stringify({sid:$('#sid').value,cards,seq}))}catch(e){} update();}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d){$('#sid').value=d.sid||''; cards=d.cards||[]; seq=d.seq||cards.length+1;}}catch(e){}}
+
+function hash(str){let h=0x811c9dc5; for(let i=0;i<str.length;i++){h^=str.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0;} return h.toString(16).padStart(8,'0').slice(0,6).toUpperCase();}
+function update(){
+  $('#cnt').textContent=cards.length;
+  const s=$('#sid').value.trim()+'|'+cards.map(c=>[c.rid,Math.round(c.x),Math.round(c.y),c.ord,c.val].join(',')).join(';');
+  $('#code').textContent=cards.length?hash(s):'------';
+}
+function tick(){const d=new Date(),p=n=>String(n).padStart(2,'0'); $('#now').textContent=`${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+tick(); setInterval(tick,15000);
+
+function cardEl(c){
+  const r=R[c.rid]; const el=document.createElement('div');
+  el.className='card '+r.k; el.style.left=c.x+'px'; el.style.top=c.y+'px'; el.dataset.cid=c.id;
+  el.innerHTML=`<div class="hd"><span class="no">${r.no}</span><span class="nm">${r.nm}</span><button class="x" type="button" aria-label="このカードを外す">×</button></div>
+  <div class="bd"><label for="o${c.id}">順番</label><input class="ord" id="o${c.id}" inputmode="numeric" maxlength="3" value="${c.ord||''}">
+  <textarea id="v${c.id}" rows="2" placeholder="値（どの機器・ポート・番号・IP…）"></textarea></div>`;
+  el.querySelector('textarea').value=c.val||'';
+  el.querySelector('.ord').addEventListener('input',e=>{c.ord=e.target.value; save();});
+  el.querySelector('textarea').addEventListener('input',e=>{c.val=e.target.value; save();});
+  el.querySelector('.x').addEventListener('click',()=>{cards=cards.filter(k=>k!==c); el.remove(); save();});
+  const hd=el.querySelector('.hd');
+  hd.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.x')) return; e.preventDefault();
+    hd.setPointerCapture(e.pointerId); el.classList.add('dragging'); board.appendChild(el);
+    const sx=e.clientX,sy=e.clientY,ox=c.x,oy=c.y;
+    const mv=ev=>{c.x=clampX(ox+ev.clientX-sx); c.y=clampY(oy+ev.clientY-sy); el.style.left=c.x+'px'; el.style.top=c.y+'px';};
+    const up=()=>{hd.removeEventListener('pointermove',mv); hd.removeEventListener('pointerup',up); hd.removeEventListener('pointercancel',up); el.classList.remove('dragging'); cards=cards.filter(k=>k!==c); cards.push(c); save();};
+    hd.addEventListener('pointermove',mv); hd.addEventListener('pointerup',up); hd.addEventListener('pointercancel',up);
+  });
+  return el;
+}
+const clampX=x=>Math.max(0,Math.min(board.clientWidth-214,x));
+const clampY=y=>Math.max(0,Math.min(board.clientHeight-130,y));
+function addCard(rid,x,y){const c={id:seq++,rid,x:clampX(x),y:clampY(y),ord:'',val:''}; cards.push(c); board.appendChild(cardEl(c)); save(); return c;}
+
+/* 棚から盤面へドラッグ */
+$('#shelf').addEventListener('pointerdown',e=>{
+  const pc=e.target.closest('.pcard'); if(!pc) return; e.preventDefault();
+  const ghost=pc.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width=pc.offsetWidth+'px';
+  document.body.appendChild(ghost);
+  const place=ev=>{ghost.style.left=(ev.clientX-20)+'px'; ghost.style.top=(ev.clientY-14)+'px';}; place(e);
+  const mv=ev=>place(ev);
+  const up=ev=>{document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); document.removeEventListener('pointercancel',cancel); ghost.remove();
+    const b=board.getBoundingClientRect();
+    if(ev.clientX>=b.left&&ev.clientX<=b.right&&ev.clientY>=b.top&&ev.clientY<=b.bottom){addCard(pc.dataset.rid,ev.clientX-b.left-20,ev.clientY-b.top-14);}
+  };
+  const cancel=()=>{document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); ghost.remove();};
+  document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',cancel);
+});
+$('#shelf').addEventListener('keydown',e=>{
+  const pc=e.target.closest('.pcard'); if(!pc||(e.key!=='Enter'&&e.key!==' ')) return; e.preventDefault();
+  const n=cards.length; addCard(pc.dataset.rid,20+(n%5)*225+Math.random()*12,590+Math.floor(n/5)%2*50+Math.random()*10);
+});
+
+$('#sid').addEventListener('input',save);
+$('#clearBtn').addEventListener('click',()=>{$('#confirm').hidden=false;});
+$('#clearNo').addEventListener('click',()=>{$('#confirm').hidden=true;});
+$('#clearYes').addEventListener('click',()=>{cards=[]; board.querySelectorAll('.card').forEach(el=>el.remove()); $('#confirm').hidden=true; save();});
+
+load();
+cards.forEach(c=>board.appendChild(cardEl(c)));
+update();
+</script>
+
+</body>
+</html>
