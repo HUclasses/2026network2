@@ -352,7 +352,7 @@ const SPECS = {
     ],
   },
   '7': {
-    label: '第7回 VLAN の間をルータでつなぐ（VLAN 間ルーティング）', pages: { table: 'p.10', diagram: 'p.10', steps: 'p.14', vlan: '第5回の ⑧⑨', check: 'p.22', trunk: '第6回の ⑩', noneg: '第6回の ⑩', sub: 'p.21', native: 'p.35', trouble: 'ステップ 1〜3 の「うまくいかないとき」' },
+    label: '第7回 VLAN の間をルータでつなぐ（VLAN 間ルーティング）', pages: { table: 'p.10', diagram: 'p.10', steps: 'p.13', vlan: '第5回の ⑧⑨', check: 'p.21', trunk: '第6回の ⑩', noneg: '第6回の ⑩', sub: 'p.20', native: 'p.34', trouble: 'ステップ 1〜3 の「うまくいかないとき」' },
     date: '261109', routerModel: '2811', switchModel: '2950T', pcModel: 'PC-PT',
     // 2026-11-02 からの方針：指摘は自分の画面（コマンド）で確かめられるものだけ（ケーブルの種類は指摘しない）。見る場所を先に、何が違うかは開くと表示。
     // 実習でまだやっていないことは指摘せず、「どこまでできたか」に数だけ出す。VLAN が違ってもルータを通って届くのが正しい
@@ -367,11 +367,11 @@ const SPECS = {
     enable: 'class', routerLogin: 'telnet', vtyPassword: 'cisco',
     shot: { text: 'スクリーンショット 5 枚（ステップ 1〜3・実習・カード選び）' },
     stages: [
-      { name: 'ステップ 1', page: 'p.14', need: [['pc', 'PC0'], ['pc', 'PC1'], ['port', 'PC0'], ['port', 'PC1'], ['rhost', 'RT1'], ['swhost', 'SW1'], ['secret', 'RT1'], ['secret', 'SW1'], ['vty', 'RT1'], ['vty', 'SW1'],
+      { name: 'ステップ 1', page: 'p.13', need: [['pc', 'PC0'], ['pc', 'PC1'], ['port', 'PC0'], ['port', 'PC1'], ['rhost', 'RT1'], ['swhost', 'SW1'], ['secret', 'RT1'], ['secret', 'SW1'], ['vty', 'RT1'], ['vty', 'SW1'],
         ['vlan', 'SW1:10'], ['vlan', 'SW1:20'], ['pvlan', 'PC0'], ['pvlan', 'PC1'], ['rlink', 'SW1'], ['trunk', 'SW1'], ['noneg', 'SW1']] },
-      { name: 'ステップ 2', page: 'p.23', need: [['rup', 'RT1'], ['sub', 'RT1:FastEthernet0/0.10'], ['sub', 'RT1:FastEthernet0/0.20'], ['pingip', 'PC0>10.7.10.1']] },
-      { name: 'ステップ 3', page: 'p.28', need: [['ping', 'PC0>PC1']] },
-      { name: '実習', page: 'p.37', hide: true, need: [['pc', 'PC2'], ['port', 'PC2'], ['vlan', 'SW1:30'], ['vlan', 'SW1:99'], ['pvlan', 'PC2'], ['sub', 'RT1:FastEthernet0/0.30'], ['subnative', 'RT1:FastEthernet0/0.99'], ['native', 'SW1'], ['ping', 'PC2>PC0'], ['allping'], ['nofix']] },
+      { name: 'ステップ 2', page: 'p.22', need: [['rup', 'RT1'], ['sub', 'RT1:FastEthernet0/0.10'], ['sub', 'RT1:FastEthernet0/0.20'], ['pingip', 'PC0>10.7.10.1']] },
+      { name: 'ステップ 3', page: 'p.27', need: [['ping', 'PC0>PC1']] },
+      { name: '実習', page: 'p.36', hide: true, need: [['pc', 'PC2'], ['port', 'PC2'], ['vlan', 'SW1:30'], ['vlan', 'SW1:99'], ['pvlan', 'PC2'], ['sub', 'RT1:FastEthernet0/0.30'], ['subnative', 'RT1:FastEthernet0/0.99'], ['native', 'SW1'], ['ping', 'PC2>PC0'], ['allping'], ['nofix']] },
     ],
   },
 };
