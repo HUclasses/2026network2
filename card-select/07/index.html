@@ -50,22 +50,36 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 td,th{border-bottom:1px solid var(--line);padding:3px 6px;text-align:left;vertical-align:top}
 th{color:var(--muted);font-weight:400;width:7.5em}
 .mono{font-family:var(--f-mono)}
-.work{display:grid;grid-template-columns:240px minmax(0,1fr);gap:12px;align-items:start}
+.work{display:grid;grid-template-columns:270px minmax(0,1fr);gap:12px;align-items:start}
 @media (max-width:760px){.work{grid-template-columns:minmax(0,1fr)}}
-.shelf{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:6px;max-height:820px;overflow:auto}
+.shelf{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;gap:4px}
 .shelf h3{font-size:12px;margin:6px 0 0;color:var(--muted);letter-spacing:.06em}
-.pcard{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);cursor:grab;touch-action:none;user-select:none}
+.pcard{display:flex;gap:8px;align-items:center;padding:2px 8px;min-height:30px;border-radius:6px;border:1px solid var(--line);background:var(--panel);cursor:grab;touch-action:none;user-select:none}
 .pcard:hover,.pcard:focus-visible{border-color:var(--accent);outline:none}
-.pcard .no{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff}
+.pcard .no{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff}
 .pcard.set .no{background:var(--set)} .pcard.chk .no{background:var(--chk);font-size:11px}
-.pcard .nm{font-size:13px;font-weight:700;line-height:1.3}
-.pcard .wh{font-size:11px;color:var(--muted)}
+.pcard .nm{font-size:12.5px;font-weight:700;line-height:1.25}
+.pcard .wh{font-size:10.5px;color:var(--muted);line-height:1.25}
 .hint{font-size:11.5px;color:var(--muted);margin:0}
 .boardwrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--board)}
-#board{position:relative;width:1180px;height:700px;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px}
-#topo{position:absolute;left:0;top:0;width:1180px;height:700px;pointer-events:none}
+#board{width:1180px;padding:6px 10px 14px}
+#topo{display:block;width:826px;height:378px;margin:0 auto;pointer-events:none}
+.slots{display:grid;gap:10px}
+.srow{display:flex;gap:14px;flex-wrap:wrap}
+.grp{display:flex;gap:8px;align-items:stretch;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--panel)}
+.grp.chk{border-color:var(--chk)}
+.glab{width:92px;flex:none;display:flex;flex-direction:column;justify-content:center;font-weight:700;font-size:15px;color:var(--ink)}
+.glab small{display:block;font-weight:400;font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.35}
+.slot{width:214px;min-height:118px;border:2px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;transition:border-color .12s,background .12s}
+.slot:empty::before{content:'ここに入れる';font-size:12px;color:var(--muted)}
+.grp.chk .slot:empty::before{content:'確かめるカード'}
+.slot.hot{border-color:var(--accent);background:var(--accent-bg)}
+.slot.bad{border-color:#c0392b}
+.slot>.card{position:static}
+.slot:not(:empty){border-color:transparent}
+#msg{min-height:1.4em;font-size:12.5px;color:var(--accent);font-weight:700}
 #topo text{font-family:var(--f-body)}
-.card{position:absolute;width:214px;background:var(--panel);border:1.5px solid var(--set);border-radius:7px;box-shadow:var(--shadow);font-size:12.5px}
+.card{width:214px;background:var(--panel);border:1.5px solid var(--set);border-radius:7px;box-shadow:var(--shadow);font-size:12.5px}
 .card.chk{border-color:var(--chk)}
 .card .hd{display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--set-bg);border-radius:6px 6px 0 0;cursor:move;touch-action:none;user-select:none}
 .card.chk .hd{background:var(--chk-bg)}
@@ -79,7 +93,7 @@ th{color:var(--muted);font-weight:400;width:7.5em}
 .card input,.card textarea{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-radius:4px;background:var(--board);color:var(--ink);padding:2px 4px;min-width:0}
 .card input.ord{width:3.2em;text-align:center;font-weight:700}
 .card textarea{grid-column:1/-1;resize:vertical;min-height:2.6em;line-height:1.35}
-.card.dragging{opacity:.85;z-index:50}
+.card.dragging{opacity:.4}
 .ghost{position:fixed;pointer-events:none;z-index:100;opacity:.85}
 .tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{font-family:var(--f-body);font-size:12.5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:4px 10px;cursor:pointer}
@@ -111,12 +125,12 @@ th{color:var(--muted);font-weight:400;width:7.5em}
       <h2>やること</h2>
       <ol>
         <li>学籍番号を入れる（自分の番号。例のまま入れない）。</li>
-        <li>下の構成図と目標だけを見て、<b>実習でやる操作</b>のカードを左の棚から選び、その操作をする<b>機器の近く</b>に置く（ドラッグ。同じカードを何枚でも置ける）。</li>
+        <li>下の構成図と目標を見て、<b>実習でやる操作</b>のカードを左の棚から選び、構成図の下の<b>機器ごとの枠</b>に入れる（ドラッグ。同じカードを何枚でも使える）。<b>枠の数が、その機器に置くカードの数</b>。設定のカードは機器の枠へ、確かめるカードは「確かめる」の枠へ。</li>
         <li>各カードに<b>順番</b>（1, 2, 3…）と<b>値</b>（VLAN の番号・名前、ポート、IP アドレスなど）を書く。確かめる操作のカードは、どこからどこへ・何を見るかを書く。</li>
         <li>ステップ 3 のファイルの続きなので、<b>もうできている設定のカードは置かない</b>。</li>
         <li>置き終えたら、このページ全体と、ブラウザの大学アカウント（メールアドレスが見える状態）を一緒に撮り、<span class="mono">2024mXYZ_5.png</span> として「第7回 スクリーンショット」に出す。</li>
       </ol>
-      <p class="hint">答え合わせはありません。スライドを見ずに、構成図と目標から自分で考えてください。カードの位置は自由です（ぴったりそろえなくてよい）。画面に入りきらないときは、ブラウザの表示を縮小（Ctrl と −、Mac は ⌘ と −）してから撮ってください。</p>
+      <p class="hint">答え合わせはありません。スライドを見ずに、構成図と目標から自分で考えてください。値が 2 つある操作は、1 枚のカードに 2 つ書いてよい。画面に入りきらないときは、ブラウザの表示を縮小（Ctrl と −、Mac は ⌘ と −）してから撮ってください。</p>
     </div>
     <div class="box goal">
       <h2>目標（実習）</h2>
@@ -135,7 +149,7 @@ th{color:var(--muted);font-weight:400;width:7.5em}
     <aside class="shelf" id="shelf" aria-label="カードの棚"></aside>
     <div style="display:grid;gap:8px;min-width:0">
       <div class="tools">
-        <span class="hint">カードの色の帯をつかんで動かす。× で外す。</span>
+        <span class="hint">枠に入れたカードは、色の帯をつかんで別の枠へ動かせる。× で外す。</span>
         <button class="btn warn" id="clearBtn" type="button">全部外す</button>
         <span id="confirm" hidden>
           <span class="hint">本当に全部外しますか？</span>
@@ -144,7 +158,9 @@ th{color:var(--muted);font-weight:400;width:7.5em}
         </span>
       </div>
       <div class="boardwrap"><div id="board" aria-label="盤面">
-        <svg id="topo" viewBox="0 0 1180 700" aria-hidden="true"></svg>
+        <svg id="topo" viewBox="0 60 1180 540" aria-hidden="true"></svg>
+        <div class="slots" id="slots"></div>
+        <div id="msg" role="status" aria-live="polite"></div>
       </div></div>
     </div>
   </section>
@@ -177,8 +193,7 @@ const ROUTINES=[
  {id:'c11',k:'chk',no:'確',nm:'show running-config',wh:'ルータ・スイッチ'},
 ];
 const R=Object.fromEntries(ROUTINES.map(r=>[r.id,r]));
-const KEY='nw2-cardselect-07';
-let cards=[]; let seq=1;
+const KEY='nw2-cardselect-07b';
 const $=s=>document.querySelector(s);
 const board=$('#board');
 
@@ -217,74 +232,97 @@ const board=$('#board');
 
 /* 棚 */
 function shelfHTML(){
-  const g=(k,t)=>`<h3>${t}</h3>`+ROUTINES.filter(r=>r.k===k).map(r=>`<div class="pcard ${r.k}" tabindex="0" role="button" data-rid="${r.id}" aria-label="${r.nm} を盤面に置く"><span class="no">${r.no}</span><span><span class="nm">${r.nm}</span><br><span class="wh">${r.wh}</span></span></div>`).join('');
-  $('#shelf').innerHTML=g('set','設定のルーチン')+g('chk','確かめるルーチン')+`<p class="hint">Enter キーでも置けます（盤面の空いている所に出ます）。</p>`;
+  const g=(k,t)=>`<h3>${t}</h3>`+ROUTINES.filter(r=>r.k===k).map(r=>`<div class="pcard ${r.k}" tabindex="0" role="button" data-rid="${r.id}" aria-label="${r.nm} を盤面に置く"><span class="no">${r.no}</span><span><span class="nm">${r.nm}</span>${r.k==='chk'?'　':'<br>'}<span class="wh">${r.wh}</span></span></div>`).join('');
+  $('#shelf').innerHTML=g('set','設定のルーチン')+g('chk','確かめるルーチン')+`<p class="hint">Enter キーでも入れられます（空いている枠に入ります）。</p>`;
 }
 shelfHTML();
 
-function save(){try{localStorage.setItem(KEY,JSON.stringify({sid:$('#sid').value,cards,seq}))}catch(e){} update();}
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d){$('#sid').value=d.sid||''; cards=d.cards||[]; seq=d.seq||cards.length+1;}}catch(e){}}
-
+const GROUPS=[
+ {row:0,dev:'RT1',k:'set',n:2,sub:'設定のカード 2 枚'},
+ {row:0,dev:'PC2',k:'set',n:2,sub:'設定のカード 2 枚'},
+ {row:1,dev:'SW1',k:'set',n:3,sub:'設定のカード 3 枚'},
+ {row:2,dev:'確かめる',k:'chk',n:3,sub:'2〜3 枚。どこで何を見るか'}];
+const SLOT_IDS=[]; 
+(function buildSlots(){
+  const rows=[[],[],[]];
+  for(const g of GROUPS){
+    let h=`<div class="grp ${g.k}"><div class="glab">${g.dev}<small>${g.sub}</small></div>`;
+    for(let i=1;i<=g.n;i++){const id=`${g.dev}-${i}`; SLOT_IDS.push(id); h+=`<div class="slot" data-slot="${id}" data-k="${g.k}" aria-label="${g.dev} の枠 ${i}"></div>`;}
+    rows[g.row].push(h+'</div>');
+  }
+  $('#slots').innerHTML=rows.map(r=>`<div class="srow">${r.join('')}</div>`).join('');
+})();
+let slots={};   /* slotId -> {rid, ord, val} */
+function save(){try{localStorage.setItem(KEY,JSON.stringify({sid:$('#sid').value,slots}))}catch(e){} update();}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d){$('#sid').value=d.sid||''; slots=d.slots||{};}}catch(e){}}
 function hash(str){let h=0x811c9dc5; for(let i=0;i<str.length;i++){h^=str.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0;} return h.toString(16).padStart(8,'0').slice(0,6).toUpperCase();}
 function update(){
-  $('#cnt').textContent=cards.length;
-  const s=$('#sid').value.trim()+'|'+cards.map(c=>[c.rid,Math.round(c.x),Math.round(c.y),c.ord,c.val].join(',')).join(';');
-  $('#code').textContent=cards.length?hash(s):'------';
+  const ks=SLOT_IDS.filter(k=>slots[k]);
+  $('#cnt').textContent=ks.length;
+  const s=$('#sid').value.trim()+'|'+ks.map(k=>[k,slots[k].rid,slots[k].ord,slots[k].val].join(',')).join(';');
+  $('#code').textContent=ks.length?hash(s):'------';
 }
 function tick(){const d=new Date(),p=n=>String(n).padStart(2,'0'); $('#now').textContent=`${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
 tick(); setInterval(tick,15000);
 
-function cardEl(c){
+let msgT=0;
+function say(t){$('#msg').textContent=t; clearTimeout(msgT); msgT=setTimeout(()=>{$('#msg').textContent='';},3500);}
+const slotEl=id=>document.querySelector(`.slot[data-slot="${id}"]`);
+function render(id){
+  const sl=slotEl(id); sl.innerHTML=''; const c=slots[id]; if(!c) return;
   const r=R[c.rid]; const el=document.createElement('div');
-  el.className='card '+r.k; el.style.left=c.x+'px'; el.style.top=c.y+'px'; el.dataset.cid=c.id;
+  el.className='card '+r.k;
   el.innerHTML=`<div class="hd"><span class="no">${r.no}</span><span class="nm">${r.nm}</span><button class="x" type="button" aria-label="このカードを外す">×</button></div>
-  <div class="bd"><label for="o${c.id}">順番</label><input class="ord" id="o${c.id}" inputmode="numeric" maxlength="3" value="${c.ord||''}">
-  <textarea id="v${c.id}" rows="2" placeholder="値（どの機器・ポート・番号・IP…）"></textarea></div>`;
-  el.querySelector('textarea').value=c.val||'';
+  <div class="bd"><label for="o-${id}">順番</label><input class="ord" id="o-${id}" inputmode="numeric" maxlength="3">
+  <textarea id="v-${id}" rows="2" placeholder="値（どの機器・ポート・番号・IP…）"></textarea></div>`;
+  el.querySelector('.ord').value=c.ord||''; el.querySelector('textarea').value=c.val||'';
   el.querySelector('.ord').addEventListener('input',e=>{c.ord=e.target.value; save();});
   el.querySelector('textarea').addEventListener('input',e=>{c.val=e.target.value; save();});
-  el.querySelector('.x').addEventListener('click',()=>{cards=cards.filter(k=>k!==c); el.remove(); save();});
-  const hd=el.querySelector('.hd');
-  hd.addEventListener('pointerdown',e=>{
-    if(e.target.closest('.x')) return; e.preventDefault();
-    hd.setPointerCapture(e.pointerId); el.classList.add('dragging'); board.appendChild(el);
-    const sx=e.clientX,sy=e.clientY,ox=c.x,oy=c.y;
-    const mv=ev=>{c.x=clampX(ox+ev.clientX-sx); c.y=clampY(oy+ev.clientY-sy); el.style.left=c.x+'px'; el.style.top=c.y+'px';};
-    const up=()=>{hd.removeEventListener('pointermove',mv); hd.removeEventListener('pointerup',up); hd.removeEventListener('pointercancel',up); el.classList.remove('dragging'); cards=cards.filter(k=>k!==c); cards.push(c); save();};
-    hd.addEventListener('pointermove',mv); hd.addEventListener('pointerup',up); hd.addEventListener('pointercancel',up);
-  });
-  return el;
+  el.querySelector('.x').addEventListener('click',()=>{delete slots[id]; render(id); save();});
+  el.querySelector('.hd').addEventListener('pointerdown',e=>{if(e.target.closest('.x')) return; startDrag(e,el.querySelector('.hd'),{from:id,rid:c.rid});});
+  sl.appendChild(el);
 }
-const clampX=x=>Math.max(0,Math.min(board.clientWidth-214,x));
-const clampY=y=>Math.max(0,Math.min(board.clientHeight-130,y));
-function addCard(rid,x,y){const c={id:seq++,rid,x:clampX(x),y:clampY(y),ord:'',val:''}; cards.push(c); board.appendChild(cardEl(c)); save(); return c;}
-
-/* 棚から盤面へドラッグ */
-$('#shelf').addEventListener('pointerdown',e=>{
-  const pc=e.target.closest('.pcard'); if(!pc) return; e.preventDefault();
-  const ghost=pc.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width=pc.offsetWidth+'px';
+function kindOk(sl,rid){
+  if(sl.dataset.k===R[rid].k) return true;
+  say(R[rid].k==='set'?'設定のカードは、機器（RT1・PC2・SW1）の枠へ':'確かめるカードは、「確かめる」の枠へ');
+  sl.classList.add('bad'); setTimeout(()=>sl.classList.remove('bad'),600); return false;
+}
+function dropTo(id,info){
+  const sl=slotEl(id); if(!kindOk(sl,info.rid)) return;
+  if(info.from){ if(info.from===id) return; const a=slots[info.from], b=slots[id]; slots[id]=a; if(b) slots[info.from]=b; else delete slots[info.from]; render(info.from); }
+  else { slots[id]={rid:info.rid,ord:'',val:''}; }
+  render(id); save();
+}
+function startDrag(e,src,info){
+  e.preventDefault();
+  const ghost=src.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width=src.offsetWidth+'px'; ghost.style.background='var(--panel)';
   document.body.appendChild(ghost);
-  const place=ev=>{ghost.style.left=(ev.clientX-20)+'px'; ghost.style.top=(ev.clientY-14)+'px';}; place(e);
-  const mv=ev=>place(ev);
-  const up=ev=>{document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); document.removeEventListener('pointercancel',cancel); ghost.remove();
-    const b=board.getBoundingClientRect();
-    if(ev.clientX>=b.left&&ev.clientX<=b.right&&ev.clientY>=b.top&&ev.clientY<=b.bottom){addCard(pc.dataset.rid,ev.clientX-b.left-20,ev.clientY-b.top-14);}
-  };
-  const cancel=()=>{document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); ghost.remove();};
-  document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); document.addEventListener('pointercancel',cancel);
-});
+  const card=info.from?slotEl(info.from).querySelector('.card'):null; if(card) card.classList.add('dragging');
+  let hot=null;
+  const at=ev=>{const t=document.elementFromPoint(ev.clientX,ev.clientY); return t&&t.closest('.slot');};
+  const place=ev=>{ghost.style.left=(ev.clientX-20)+'px'; ghost.style.top=(ev.clientY-14)+'px'; const sl=at(ev); if(hot!==sl){hot&&hot.classList.remove('hot'); hot=sl; hot&&hot.classList.add('hot');}};
+  place(e);
+  const end=ev=>{document.removeEventListener('pointermove',place); document.removeEventListener('pointerup',end); document.removeEventListener('pointercancel',end);
+    ghost.remove(); hot&&hot.classList.remove('hot'); if(card) card.classList.remove('dragging');
+    if(ev.type==='pointerup'){const sl=at(ev); if(sl) dropTo(sl.dataset.slot,info); else if(!info.from) say('枠の中に入れてください');}};
+  document.addEventListener('pointermove',place); document.addEventListener('pointerup',end); document.addEventListener('pointercancel',end);
+}
+
+/* 棚から枠へ */
+$('#shelf').addEventListener('pointerdown',e=>{const pc=e.target.closest('.pcard'); if(!pc) return; startDrag(e,pc,{rid:pc.dataset.rid});});
 $('#shelf').addEventListener('keydown',e=>{
   const pc=e.target.closest('.pcard'); if(!pc||(e.key!=='Enter'&&e.key!==' ')) return; e.preventDefault();
-  const n=cards.length; addCard(pc.dataset.rid,20+(n%5)*225+Math.random()*12,590+Math.floor(n/5)%2*50+Math.random()*10);
+  const k=R[pc.dataset.rid].k; const id=SLOT_IDS.find(i=>!slots[i]&&slotEl(i).dataset.k===k);
+  if(id){dropTo(id,{rid:pc.dataset.rid}); slotEl(id).querySelector('.ord').focus();} else say('空いている枠がありません。× で外してから入れてください');
 });
 
 $('#sid').addEventListener('input',save);
 $('#clearBtn').addEventListener('click',()=>{$('#confirm').hidden=false;});
 $('#clearNo').addEventListener('click',()=>{$('#confirm').hidden=true;});
-$('#clearYes').addEventListener('click',()=>{cards=[]; board.querySelectorAll('.card').forEach(el=>el.remove()); $('#confirm').hidden=true; save();});
+$('#clearYes').addEventListener('click',()=>{slots={}; SLOT_IDS.forEach(render); $('#confirm').hidden=true; save();});
 
 load();
-cards.forEach(c=>board.appendChild(cardEl(c)));
+SLOT_IDS.forEach(render);
 update();
 </script>
 
