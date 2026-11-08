@@ -80,6 +80,8 @@ th{color:var(--muted);font-weight:400;width:7.5em}
 .slot{margin-top:6px}
 .grp.chk .slot::after{background:var(--chk)}
 .slot>.card{position:static}
+.card.fixed .hd{cursor:default}
+.card .fv{grid-column:1/-1;font-family:var(--f-mono);font-size:12px;line-height:1.4;color:var(--ink)}
 .card .cmd{grid-column:1/-1;margin:0;font-family:var(--f-mono);font-size:11px;line-height:1.35;white-space:pre-wrap;color:var(--muted);background:var(--board);border-radius:4px;padding:3px 5px}
 .slot:not(:empty){border-color:transparent;align-items:flex-start}
 #msg{min-height:1.4em;font-size:12.5px;color:var(--accent);font-weight:700}
@@ -130,8 +132,8 @@ th{color:var(--muted);font-weight:400;width:7.5em}
       <h2>やること</h2>
       <ol>
         <li>学籍番号を入れる（自分の番号。例のまま入れない）。</li>
-        <li>下の構成図と目標を見て、<b>実習でやる操作</b>のカードを左の棚から選び、構成図の下の枠に入れる（ドラッグ。同じカードを何枚でも使える）。<b>枠の番号がやる順番</b>、<b>枠の数がその機器に置くカードの数</b>。設定のカードは機器の枠へ、確かめるカードは「確かめる」の枠へ。カードを入れると、コマンドのヒントが出る。</li>
-        <li>各カードに<b>値</b>（VLAN の番号・名前、ポート、IP アドレスなど）を書く。確かめる操作のカードは、どこからどこへ・何を見るかを書く。</li>
+        <li>下の構成図と目標を見て、<b>実習でやる操作</b>のカードを左の棚から選び、構成図の下の枠に入れる（ドラッグ。同じカードを何枚でも使える）。<b>枠の番号がやる順番</b>、<b>枠の数がその機器に置くカードの数</b>。カードを入れると、コマンドのヒントが出る。「確かめる」のカードは最初から入れてある。</li>
+        <li>各カードに<b>値</b>（VLAN の番号・名前、ポート、IP アドレスなど）を書く。</li>
         <li>ステップ 3 のファイルの続きなので、<b>もうできている設定のカードは置かない</b>。</li>
         <li>置き終えたら、その番号の順に Packet Tracer で設定する。このページ全体と、ブラウザの大学アカウント（メールアドレスが見える状態）を一緒に撮り、<span class="mono">2024mXYZ_5.png</span> として「第7回 スクリーンショット」に出す。</li>
       </ol>
@@ -198,7 +200,7 @@ const ROUTINES=[
  {id:'c11',k:'chk',no:'確',nm:'show running-config',wh:'ルータ・スイッチ'},
 ];
 const R=Object.fromEntries(ROUTINES.map(r=>[r.id,r]));
-const KEY='nw2-cardselect-07c';
+const KEY='nw2-cardselect-07d';
 const $=s=>document.querySelector(s);
 const board=$('#board');
 
@@ -238,7 +240,7 @@ const board=$('#board');
 /* 棚 */
 function shelfHTML(){
   const g=(k,t)=>`<h3>${t}</h3>`+ROUTINES.filter(r=>r.k===k).map(r=>`<div class="pcard ${r.k}" tabindex="0" role="button" data-rid="${r.id}" aria-label="${r.nm} を盤面に置く"><span class="no">${r.no}</span><span><span class="nm">${r.nm}</span>${r.k==='chk'?'　':'<br>'}<span class="wh">${r.wh}</span></span></div>`).join('');
-  $('#shelf').innerHTML=g('set','設定のルーチン')+g('chk','確かめるルーチン')+`<p class="hint">Enter キーでも入れられます（空いている枠に入ります）。</p>`;
+  $('#shelf').innerHTML=g('set','設定のルーチン')+`<p class="hint">Enter キーでも入れられます（空いている枠に入ります）。</p>`;
 }
 shelfHTML();
 
@@ -247,7 +249,11 @@ const GROUPS=[
  {row:0,dev:'PC2',k:'set',ords:[1,2],sub:'設定のカード 2 枚'},
  {row:0,dev:'RT1',k:'set',ords:[5,7],sub:'設定のカード 2 枚'},
  {row:1,dev:'SW1',k:'set',ords:[3,4,6],sub:'設定のカード 3 枚'},
- {row:2,dev:'確かめる',k:'chk',ords:[8,9,10],sub:'2〜3 枚。どこで何を見るか'}];
+ {row:2,dev:'確かめる',k:'chk',ords:[8,9,10],sub:'最初から入れてある。設定し終えたらこの順に'}];
+/* 確かめるカードは最初から入れておく（2026-11-08 教員） */
+const FIXED={'確かめる-8':{rid:'c10',val:'SW1：Fa0/24 の Native vlan が 99'},
+             '確かめる-9':{rid:'c6',val:'RT1：Fa0/0.30 が 10.7.30.1 で up・up。Fa0/0.99 も up・up'},
+             '確かめる-10':{rid:'c2',val:'PC2 → PC0（10.7.10.11）が届く。TTL=127'}};
 /* カードを入れると出るヒント（どの枠でも同じ。値は自分で書く） */
 const HINT={
  r1:'Desktop → IP Configuration → Static\nIP Address・Subnet Mask・Default Gateway',
@@ -278,7 +284,8 @@ const SLOT_IDS=[];
 })();
 let slots={};   /* slotId -> {rid, val} */
 function save(){try{localStorage.setItem(KEY,JSON.stringify({sid:$('#sid').value,slots}))}catch(e){} update();}
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d){$('#sid').value=d.sid||''; slots=d.slots||{};}}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d){$('#sid').value=d.sid||''; slots=d.slots||{};}}catch(e){} fixIn();}
+function fixIn(){for(const k in FIXED) slots[k]={...FIXED[k],fixed:true};}
 function hash(str){let h=0x811c9dc5; for(let i=0;i<str.length;i++){h^=str.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0;} return h.toString(16).padStart(8,'0').slice(0,6).toUpperCase();}
 function update(){
   const ks=SLOT_IDS.filter(k=>slots[k]);
@@ -300,6 +307,7 @@ function render(id){
   <div class="bd"><pre class="cmd">${HINT[c.rid]||''}</pre>
   <textarea id="v-${id}" rows="2" placeholder="値（VLAN 番号・名前、ポート、IP…）"></textarea></div>`;
   el.querySelector('textarea').value=c.val||'';
+  if(c.fixed){el.classList.add('fixed'); el.querySelector('.x').remove(); const ta=el.querySelector('textarea'), d=document.createElement('div'); d.className='fv'; d.textContent=c.val; ta.replaceWith(d); sl.appendChild(el); return;}
   el.querySelector('textarea').addEventListener('input',e=>{c.val=e.target.value; save();});
   el.querySelector('.x').addEventListener('click',()=>{delete slots[id]; render(id); save();});
   el.querySelector('.hd').addEventListener('pointerdown',e=>{if(e.target.closest('.x')) return; startDrag(e,el.querySelector('.hd'),{from:id,rid:c.rid});});
@@ -307,11 +315,11 @@ function render(id){
 }
 function kindOk(sl,rid){
   if(sl.dataset.k===R[rid].k) return true;
-  say(R[rid].k==='set'?'設定のカードは、機器（RT1・PC2・SW1）の枠へ':'確かめるカードは、「確かめる」の枠へ');
+  say('設定のカードは、機器（PC2・SW1・RT1）の枠へ');
   sl.classList.add('bad'); setTimeout(()=>sl.classList.remove('bad'),600); return false;
 }
 function dropTo(id,info){
-  const sl=slotEl(id); if(!kindOk(sl,info.rid)) return;
+  const sl=slotEl(id); if(slots[id]&&slots[id].fixed){say('この枠は最初から埋まっています（確かめるカード）');return;} if(!kindOk(sl,info.rid)) return;
   if(info.from){ if(info.from===id) return; const a=slots[info.from], b=slots[id]; slots[id]=a; if(b) slots[info.from]=b; else delete slots[info.from]; render(info.from); }
   else { slots[id]={rid:info.rid,val:''}; }
   render(id); save();
@@ -342,7 +350,7 @@ $('#shelf').addEventListener('keydown',e=>{
 $('#sid').addEventListener('input',save);
 $('#clearBtn').addEventListener('click',()=>{$('#confirm').hidden=false;});
 $('#clearNo').addEventListener('click',()=>{$('#confirm').hidden=true;});
-$('#clearYes').addEventListener('click',()=>{slots={}; SLOT_IDS.forEach(render); $('#confirm').hidden=true; save();});
+$('#clearYes').addEventListener('click',()=>{slots={}; fixIn(); SLOT_IDS.forEach(render); $('#confirm').hidden=true; save();});
 
 load();
 SLOT_IDS.forEach(render);
