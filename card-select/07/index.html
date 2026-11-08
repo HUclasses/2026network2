@@ -75,8 +75,13 @@ th{color:var(--muted);font-weight:400;width:7.5em}
 .grp.chk .slot:empty::before{content:'確かめるカード'}
 .slot.hot{border-color:var(--accent);background:var(--accent-bg)}
 .slot.bad{border-color:#c0392b}
+.slot{position:relative}
+.slot::after{content:attr(data-ord) ' 番目';position:absolute;top:-11px;right:8px;height:20px;line-height:20px;padding:0 7px;border-radius:4px;background:var(--accent);color:#fff;font-weight:700;font-size:12px;z-index:2}
+.slot{margin-top:6px}
+.grp.chk .slot::after{background:var(--chk)}
 .slot>.card{position:static}
-.slot:not(:empty){border-color:transparent}
+.card .cmd{grid-column:1/-1;margin:0;font-family:var(--f-mono);font-size:11px;line-height:1.35;white-space:pre-wrap;color:var(--muted);background:var(--board);border-radius:4px;padding:3px 5px}
+.slot:not(:empty){border-color:transparent;align-items:flex-start}
 #msg{min-height:1.4em;font-size:12.5px;color:var(--accent);font-weight:700}
 #topo text{font-family:var(--f-body)}
 .card{width:214px;background:var(--panel);border:1.5px solid var(--set);border-radius:7px;box-shadow:var(--shadow);font-size:12.5px}
@@ -125,10 +130,10 @@ th{color:var(--muted);font-weight:400;width:7.5em}
       <h2>やること</h2>
       <ol>
         <li>学籍番号を入れる（自分の番号。例のまま入れない）。</li>
-        <li>下の構成図と目標を見て、<b>実習でやる操作</b>のカードを左の棚から選び、構成図の下の<b>機器ごとの枠</b>に入れる（ドラッグ。同じカードを何枚でも使える）。<b>枠の数が、その機器に置くカードの数</b>。設定のカードは機器の枠へ、確かめるカードは「確かめる」の枠へ。</li>
-        <li>各カードに<b>順番</b>（1, 2, 3…）と<b>値</b>（VLAN の番号・名前、ポート、IP アドレスなど）を書く。確かめる操作のカードは、どこからどこへ・何を見るかを書く。</li>
+        <li>下の構成図と目標を見て、<b>実習でやる操作</b>のカードを左の棚から選び、構成図の下の枠に入れる（ドラッグ。同じカードを何枚でも使える）。<b>枠の番号がやる順番</b>、<b>枠の数がその機器に置くカードの数</b>。設定のカードは機器の枠へ、確かめるカードは「確かめる」の枠へ。カードを入れると、コマンドのヒントが出る。</li>
+        <li>各カードに<b>値</b>（VLAN の番号・名前、ポート、IP アドレスなど）を書く。確かめる操作のカードは、どこからどこへ・何を見るかを書く。</li>
         <li>ステップ 3 のファイルの続きなので、<b>もうできている設定のカードは置かない</b>。</li>
-        <li>置き終えたら、このページ全体と、ブラウザの大学アカウント（メールアドレスが見える状態）を一緒に撮り、<span class="mono">2024mXYZ_5.png</span> として「第7回 スクリーンショット」に出す。</li>
+        <li>置き終えたら、その番号の順に Packet Tracer で設定する。このページ全体と、ブラウザの大学アカウント（メールアドレスが見える状態）を一緒に撮り、<span class="mono">2024mXYZ_5.png</span> として「第7回 スクリーンショット」に出す。</li>
       </ol>
       <p class="hint">答え合わせはありません。スライドを見ずに、構成図と目標から自分で考えてください。値が 2 つある操作は、1 枚のカードに 2 つ書いてよい。画面に入りきらないときは、ブラウザの表示を縮小（Ctrl と −、Mac は ⌘ と −）してから撮ってください。</p>
     </div>
@@ -193,7 +198,7 @@ const ROUTINES=[
  {id:'c11',k:'chk',no:'確',nm:'show running-config',wh:'ルータ・スイッチ'},
 ];
 const R=Object.fromEntries(ROUTINES.map(r=>[r.id,r]));
-const KEY='nw2-cardselect-07b';
+const KEY='nw2-cardselect-07c';
 const $=s=>document.querySelector(s);
 const board=$('#board');
 
@@ -237,29 +242,48 @@ function shelfHTML(){
 }
 shelfHTML();
 
+/* 枠の番号＝やる順番（2026-11-08：難しすぎないよう、順番を枠に付け、カードを入れるとコマンドのヒントが出る形にした） */
 const GROUPS=[
- {row:0,dev:'RT1',k:'set',n:2,sub:'設定のカード 2 枚'},
- {row:0,dev:'PC2',k:'set',n:2,sub:'設定のカード 2 枚'},
- {row:1,dev:'SW1',k:'set',n:3,sub:'設定のカード 3 枚'},
- {row:2,dev:'確かめる',k:'chk',n:3,sub:'2〜3 枚。どこで何を見るか'}];
+ {row:0,dev:'PC2',k:'set',ords:[1,2],sub:'設定のカード 2 枚'},
+ {row:0,dev:'RT1',k:'set',ords:[5,7],sub:'設定のカード 2 枚'},
+ {row:1,dev:'SW1',k:'set',ords:[3,4,6],sub:'設定のカード 3 枚'},
+ {row:2,dev:'確かめる',k:'chk',ords:[8,9,10],sub:'2〜3 枚。どこで何を見るか'}];
+/* カードを入れると出るヒント（どの枠でも同じ。値は自分で書く） */
+const HINT={
+ r1:'Desktop → IP Configuration → Static\nIP Address・Subnet Mask・Default Gateway',
+ r2:'hostname __ → enable secret __\nline vty 0 4 → password __ → login',
+ r3:'interface fa0/__ → ip address __ __\n→ no shutdown',
+ r4:'interface vlan 1 → ip address __ __\nip default-gateway __',
+ r5:'ip route 宛先 マスク 次のルータ',
+ r6:'ip domain-name → crypto key generate rsa\nusername → login local → transport input ssh',
+ r7:'機器を置く → Fa0/__ にストレートでつなぐ\n→ 表示名（Display Name）',
+ r8:'vlan __ → name __\n（VLAN ごとにくり返す）',
+ r9:'interface range fa0/__ - __\nswitchport mode access\nswitchport access vlan __',
+ r10:'interface fa0/__\nswitchport mode trunk\nswitchport nonegotiate',
+ r11:'interface fa0/0.__\nencapsulation dot1Q __\nip address __ 255.255.255.0',
+ r12:'スイッチ：interface fa0/__\n  switchport trunk native vlan __\nルータ：interface fa0/0.__\n  encapsulation dot1Q __ native',
+ c1:'PC で ipconfig /all', c2:'PC で ping 宛先のIP', c3:'PC で tracert 宛先のIP', c4:'PC で arp -a',
+ c5:'PC で telnet 宛先／ssh -l 名前 宛先', c6:'ルータで show ip interface brief', c7:'ルータで show ip route',
+ c8:'スイッチで show vlan brief', c9:'スイッチで show mac-address-table', c10:'スイッチで show interfaces trunk', c11:'show running-config'};
 const SLOT_IDS=[]; 
 (function buildSlots(){
   const rows=[[],[],[]];
   for(const g of GROUPS){
     let h=`<div class="grp ${g.k}"><div class="glab">${g.dev}<small>${g.sub}</small></div>`;
-    for(let i=1;i<=g.n;i++){const id=`${g.dev}-${i}`; SLOT_IDS.push(id); h+=`<div class="slot" data-slot="${id}" data-k="${g.k}" aria-label="${g.dev} の枠 ${i}"></div>`;}
+    for(const o of g.ords){const id=`${g.dev}-${o}`; SLOT_IDS.push(id); h+=`<div class="slot" data-slot="${id}" data-k="${g.k}" data-ord="${o}" aria-label="${o} 番目（${g.dev}）"></div>`;}
     rows[g.row].push(h+'</div>');
   }
   $('#slots').innerHTML=rows.map(r=>`<div class="srow">${r.join('')}</div>`).join('');
+  SLOT_IDS.sort((a,b)=>+a.split('-').pop()-+b.split('-').pop());
 })();
-let slots={};   /* slotId -> {rid, ord, val} */
+let slots={};   /* slotId -> {rid, val} */
 function save(){try{localStorage.setItem(KEY,JSON.stringify({sid:$('#sid').value,slots}))}catch(e){} update();}
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(d){$('#sid').value=d.sid||''; slots=d.slots||{};}}catch(e){}}
 function hash(str){let h=0x811c9dc5; for(let i=0;i<str.length;i++){h^=str.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0;} return h.toString(16).padStart(8,'0').slice(0,6).toUpperCase();}
 function update(){
   const ks=SLOT_IDS.filter(k=>slots[k]);
   $('#cnt').textContent=ks.length;
-  const s=$('#sid').value.trim()+'|'+ks.map(k=>[k,slots[k].rid,slots[k].ord,slots[k].val].join(',')).join(';');
+  const s=$('#sid').value.trim()+'|'+ks.map(k=>[k,slots[k].rid,slots[k].val].join(',')).join(';');
   $('#code').textContent=ks.length?hash(s):'------';
 }
 function tick(){const d=new Date(),p=n=>String(n).padStart(2,'0'); $('#now').textContent=`${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
@@ -273,10 +297,9 @@ function render(id){
   const r=R[c.rid]; const el=document.createElement('div');
   el.className='card '+r.k;
   el.innerHTML=`<div class="hd"><span class="no">${r.no}</span><span class="nm">${r.nm}</span><button class="x" type="button" aria-label="このカードを外す">×</button></div>
-  <div class="bd"><label for="o-${id}">順番</label><input class="ord" id="o-${id}" inputmode="numeric" maxlength="3">
-  <textarea id="v-${id}" rows="2" placeholder="値（どの機器・ポート・番号・IP…）"></textarea></div>`;
-  el.querySelector('.ord').value=c.ord||''; el.querySelector('textarea').value=c.val||'';
-  el.querySelector('.ord').addEventListener('input',e=>{c.ord=e.target.value; save();});
+  <div class="bd"><pre class="cmd">${HINT[c.rid]||''}</pre>
+  <textarea id="v-${id}" rows="2" placeholder="値（VLAN 番号・名前、ポート、IP…）"></textarea></div>`;
+  el.querySelector('textarea').value=c.val||'';
   el.querySelector('textarea').addEventListener('input',e=>{c.val=e.target.value; save();});
   el.querySelector('.x').addEventListener('click',()=>{delete slots[id]; render(id); save();});
   el.querySelector('.hd').addEventListener('pointerdown',e=>{if(e.target.closest('.x')) return; startDrag(e,el.querySelector('.hd'),{from:id,rid:c.rid});});
@@ -290,7 +313,7 @@ function kindOk(sl,rid){
 function dropTo(id,info){
   const sl=slotEl(id); if(!kindOk(sl,info.rid)) return;
   if(info.from){ if(info.from===id) return; const a=slots[info.from], b=slots[id]; slots[id]=a; if(b) slots[info.from]=b; else delete slots[info.from]; render(info.from); }
-  else { slots[id]={rid:info.rid,ord:'',val:''}; }
+  else { slots[id]={rid:info.rid,val:''}; }
   render(id); save();
 }
 function startDrag(e,src,info){
@@ -313,7 +336,7 @@ $('#shelf').addEventListener('pointerdown',e=>{const pc=e.target.closest('.pcard
 $('#shelf').addEventListener('keydown',e=>{
   const pc=e.target.closest('.pcard'); if(!pc||(e.key!=='Enter'&&e.key!==' ')) return; e.preventDefault();
   const k=R[pc.dataset.rid].k; const id=SLOT_IDS.find(i=>!slots[i]&&slotEl(i).dataset.k===k);
-  if(id){dropTo(id,{rid:pc.dataset.rid}); slotEl(id).querySelector('.ord').focus();} else say('空いている枠がありません。× で外してから入れてください');
+  if(id){dropTo(id,{rid:pc.dataset.rid}); slotEl(id).querySelector('textarea').focus();} else say('空いている枠がありません。× で外してから入れてください');
 });
 
 $('#sid').addEventListener('input',save);
